@@ -81,21 +81,21 @@ const PRODUCTS = [
     htmlDesc: `<h3>产品特点</h3>
       <ul><li>收录 60 个真实诈骗案例，覆盖十大高发类型</li><li>大字版设计，专为中老年人群编写</li><li>图文并茂，每章配套防骗口诀</li><li>附赠 96110 应急联系卡片</li></ul>
       <h3>适用人群</h3><p>适合全家人共同学习，尤其适合送给家中长辈，守护银发族的钱袋子。</p>` },
-  { id: 'p2', name: '不倒翁健身 - 7天全能体验卡', cat: '虚拟', points: 1200, stock: 999, price: 199, img: 'assets/products/product-gym.png', icon: 'i-member', color: '#B8860B', hot: true, sponsor: { name: '不倒翁健身', sub: '专业健身 活力无限', color: '#CFA600', logo: '', intro: '不倒翁健身创立于 2015 年，专注大众健身与健康管理，全国 120+ 门店、专业教练 3000+ 名，致力于让运动更简单、更有趣。', phone: '400-888-6666', douyin: 'https://v.douyin.com/bdwjs', kuaishou: 'https://www.kuaishou.com/profile/bdwjs', address: '北京市朝阳区建国路88号 国贸商城3层' },
-    desc: '专业教练指导，全场器械通用',
-    htmlDesc: `<h3>权益内容</h3>
-      <ul><li>7 天不限次入场健身</li><li>全场器械通用，含泳池/团课</li><li>专业教练一对一体测指导</li><li>赠送运动毛巾一条</li></ul>
-      <h3>使用说明</h3><p>兑换成功后凭兑换码到店核销，有效期自激活起 30 天。</p>` },
+  { id: 'p2', name: '不倒翁健身定制运动毛巾', cat: '实物', points: 1200, stock: 999, price: 199, img: 'assets/products/product-gym.png', icon: 'i-member', color: '#B8860B', hot: true, sponsor: { name: '不倒翁健身', sub: '专业健身 活力无限', color: '#CFA600', logo: '', intro: '不倒翁健身创立于 2015 年，专注大众健身与健康管理，全国 120+ 门店、专业教练 3000+ 名，致力于让运动更简单、更有趣。', phone: '400-888-6666', douyin: 'https://v.douyin.com/bdwjs', kuaishou: 'https://www.kuaishou.com/profile/bdwjs', address: '北京市朝阳区建国路88号 国贸商城3层' },
+    desc: '加厚纯棉，吸汗速干，健身必备',
+    htmlDesc: `<h3>产品特点</h3>
+      <ul><li>精梳纯棉材质，亲肤柔软</li><li>快速吸汗，速干透气</li><li>加厚设计，结实耐用</li><li>多色可选，支持定制印花</li></ul>
+      <h3>配送说明</h3><p>兑换成功后 3 个工作日内发货，全国包邮，请留意物流信息。</p>` },
   { id: 'p3', name: '卫士专属硬件安全密钥', cat: '实物', points: 2500, stock: 76, price: 129, img: 'assets/products/product-key.png', icon: 'i-lock', color: '#0B7285', hot: false, self: true,
     desc: '银行级加密芯片，账户安全守护',
     htmlDesc: `<h3>核心参数</h3>
       <ul><li>银行级加密芯片，FIDO2 标准</li><li>支持指纹识别快速解锁</li><li>USB-A / Type-C 双接口</li><li>防丢挂绳设计，便于携带</li></ul>
       <h3>安全保障</h3><p>硬件级密钥存储，有效防范网络钓鱼与账号盗用。</p>` },
-  { id: 'p4', name: '不倒翁健身 - 7天全能体验卡', cat: '虚拟', points: 800, stock: 500, price: 68, img: 'assets/products/product-gym.png', icon: 'i-member', color: '#0F6E56', hot: false, sponsor: { name: '不倒翁健身', sub: '专业健身 活力无限', color: '#18C33E', logo: '', intro: '不倒翁健身创立于 2015 年，专注大众健身与健康管理，全国 120+ 门店、专业教练 3000+ 名，致力于让运动更简单、更有趣。', phone: '400-888-6666', douyin: 'https://v.douyin.com/bdwjs', kuaishou: 'https://www.kuaishou.com/profile/bdwjs', address: '北京市朝阳区建国路88号 国贸商城3层' },
-    desc: '专业教练指导，全场器械通用',
-    htmlDesc: `<h3>权益内容</h3>
-      <ul><li>7 天不限次入场健身</li><li>全场器械通用，含泳池/团课</li><li>专业教练一对一体测指导</li><li>赠送运动毛巾一条</li></ul>
-      <h3>使用说明</h3><p>兑换成功后凭兑换码到店核销，有效期自激活起 30 天。</p>` },
+  { id: 'p4', name: '不倒翁健身定制运动水壶', cat: '实物', points: 800, stock: 500, price: 68, img: 'assets/products/product-gym.png', icon: 'i-member', color: '#0F6E56', hot: false, sponsor: { name: '不倒翁健身', sub: '专业健身 活力无限', color: '#18C33E', logo: '', intro: '不倒翁健身创立于 2015 年，专注大众健身与健康管理，全国 120+ 门店、专业教练 3000+ 名，致力于让运动更简单、更有趣。', phone: '400-888-6666', douyin: 'https://v.douyin.com/bdwjs', kuaishou: 'https://www.kuaishou.com/profile/bdwjs', address: '北京市朝阳区建国路88号 国贸商城3层' },
+    desc: '大容量运动水壶，随身补水',
+    htmlDesc: `<h3>产品特点</h3>
+      <ul><li>大容量 750ml，满足单次训练饮水</li><li>食品级 Tritan 材质，安全无异味</li><li>一键弹盖，单手开合</li><li>防漏密封，随行便携</li></ul>
+      <h3>配送说明</h3><p>兑换成功后 3 个工作日内发货，全国包邮，请留意物流信息。</p>` },
 ];
 
 /* 默认收货地址 */

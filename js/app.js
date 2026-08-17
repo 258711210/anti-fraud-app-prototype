@@ -505,11 +505,19 @@ function showRealnameForm() {
       <div class="form-field"><label>身份证号</label><input class="input" id="rnId" maxlength="18" placeholder="请输入18位身份证号"></div>
       <div class="proto-note">实名信息将加密存储，仅用于守护者资质审核（PRD 4.4.2）。原型中身份信息不做真实校验。</div>
       <div style="padding:14px 16px"><button class="btn btn-primary btn-lg btn-block" id="toFace">下一步：活体检测</button></div>
+      <button class="skip-auth-btn" id="rnSkip" style="width:auto;margin:0 auto 24px">测试：跳过认证，直接进入守护者工作台</button>
     </div>`;
   $('#toFace').onclick = () => {
     if (!$('#rnName').value.trim()) return toast('请输入真实姓名', 'i-alert');
     if (!/^\d{17}[\dXx]$/.test($('#rnId').value.trim())) return toast('请输入正确的 18 位身份证号', 'i-alert');
     showFaceScan();
+  };
+  /* 测试：跳过认证 */
+  $('#rnSkip').onclick = () => {
+    S.guard.authed = true;
+    S.role = 'guardian';
+    toast('已跳过实名认证（测试模式）', 'i-check');
+    resetTo('guard');
   };
 }
 
@@ -1429,8 +1437,7 @@ SCREENS.mall = {
       const pts = S.role === 'guardian' ? S.guard.points : S.seeker.points;
       if (p.stock <= 0) return toast('该商品已售罄', 'i-alert');
       if (pts < p.points) return toast(`积分不足，还差 ${fmt(p.points - pts)} 积分`, 'i-alert');
-      if (p.cat === '实物') showAddrSheet(p);
-      else confirmExchange(p, null);
+      showAddrSheet(p);
     });
   }
 };
@@ -1469,7 +1476,7 @@ SCREENS.product = {
       <div class="detail-body">
         <div style="display:flex;gap:8px;align-items:center">
           <h2 style="font-size:var(--fs-xl);flex:1">${p.name}</h2>
-          <span class="tag-mini ${p.cat === '实物' ? 'tag-blue' : 'tag-green'}">${p.cat}商品</span>
+          <span class="tag-mini tag-blue">实物商品</span>
         </div>
         <div class="detail-price">
           ${ic('i-coin')}${fmt(p.points)}
@@ -1533,12 +1540,11 @@ SCREENS.product = {
           <ul>
             <li>兑换后积分即时扣除，订单取消积分退回</li>
             <li>实物商品：3 个工作日内发货，包邮到家</li>
-            <li>虚拟商品：兑换码通过站内信即时发放</li>
             <li>每人每月限兑 2 件同款商品</li>
             <li>所有商品不支持 7 天无理由退换</li>
           </ul>
           <h3>配送说明</h3>
-          <p>实物商品将通过顺丰速运发货，全国大部分地区 3-5 个工作日送达。虚拟商品兑换码有效期为 30 天，请及时使用。</p>
+          <p>所有商品均为实物，将通过顺丰速运发货，全国大部分地区 3-5 个工作日送达。</p>
         </div>`;
       }
     });
@@ -1547,8 +1553,7 @@ SCREENS.product = {
     btn.onclick = () => {
       const pts = S.role === 'guardian' ? S.guard.points : S.seeker.points;
       if (pts < p.points) return toast(`积分不足，还差 ${fmt(p.points - pts)} 积分`, 'i-alert');
-      if (p.cat === '实物') showAddrSheet(p);
-      else confirmExchange(p, null);
+      showAddrSheet(p);
     };
   }
 };
@@ -1593,7 +1598,7 @@ function confirmExchange(p, addr) {
       <div class="d-sub" style="text-align:left">
         商品：<b>${p.name}</b><br>
         消耗：<b style="color:var(--gold)">${fmt(p.points)} 积分</b><br>
-        ${addr ? `收货：${addr.name} ${addr.region}${addr.detail}` : '发放：兑换码将通过站内信发送'}
+        ${addr ? `收货：${addr.name} ${addr.region}${addr.detail}` : '收货地址将随后确认'}
       </div>
       <div class="d-btns">
         <button class="btn btn-plain" data-x>再想想</button>
@@ -1613,7 +1618,7 @@ function confirmExchange(p, addr) {
       <div class="dialog">
         <div class="result-badge" style="width:80px;height:80px;background:linear-gradient(135deg,#12997A,#0F6E56)">${ic('i-check')}</div>
         <h3>兑换成功</h3>
-        <div class="d-sub">${p.cat === '实物' ? '商家将在 3 个工作日内发货' : `兑换码：<b style="letter-spacing:2px">FK${String(Date.now()).slice(-8)}</b><br>已同步发送至站内信`}</div>
+        <div class="d-sub">商家将在 3 个工作日内发货</div>
         <div class="d-btns">
           <button class="btn btn-plain" data-home>继续逛逛</button>
           <button class="btn btn-primary" data-order>查看订单</button>
