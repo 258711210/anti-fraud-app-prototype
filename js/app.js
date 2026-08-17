@@ -7,11 +7,23 @@ const S = {
   agreed: false,
   role: null,                       // 'seeker' | 'guardian'
   loginTab: 'onekey',
-  seeker: { name: '张阿姨', points: 260 },
+  seeker: { name: '勇敢的小熊 8253', points: 260 },
   guard: {
     authed: false, name: '李守护者', level: 3, helps: 68, score: 4.6,
     credit: 82, points: 1280, online: false,
     tags: ['冒充客服退款类', '网络刷单类', '冒充公检法类'],
+    badges: [
+      { id: 'b1', name: '守护公检法卫士', icon: 'i-alert', color: '#A32D2D', type: 'gst', desc: '完成「冒充公检法类」答题挑战', earned: true, time: '2026-07-15' },
+      { id: 'b2', name: '投资防骗专家', icon: 'i-coin', color: '#B8860B', type: 'invest', desc: '完成「虚假投资理财类」答题挑战', earned: true, time: '2026-07-20' },
+      { id: 'b3', name: '刷单识破能手', icon: 'i-refresh', color: '#185FA5', type: 'order', desc: '完成「网络刷单类」答题挑战', earned: true, time: '2026-08-01' },
+      { id: 'b4', name: '客服诈骗克星', icon: 'i-headset', color: '#0F6E56', type: 'refund', desc: '完成「冒充客服退款类」答题挑战', earned: false, time: '' },
+      { id: 'b5', name: '贷款防骗达人', icon: 'i-card', color: '#6C5CE7', type: 'loan', desc: '完成「虚假贷款类」答题挑战', earned: false, time: '' },
+      { id: 'b6', name: '情感防骗守护', icon: 'i-user', color: '#D6336C', type: 'love', desc: '完成「杀猪盘/婚恋交友类」答题挑战', earned: false, time: '' },
+      { id: 'b7', name: '游戏交易卫士', icon: 'i-video', color: '#0B7285', type: 'game', desc: '完成「游戏交易诈骗类」答题挑战', earned: false, time: '' },
+      { id: 'b8', name: '征信修复识破者', icon: 'i-credit', color: '#854F0B', type: 'credit', desc: '完成「虚假征信修复类」答题挑战', earned: false, time: '' },
+      { id: 'b9', name: '中奖诈骗识破者', icon: 'i-gift', color: '#E8590C', type: 'prize', desc: '完成「虚假中奖类」答题挑战', earned: false, time: '' },
+      { id: 'b10', name: '综合守护达人', icon: 'i-doc', color: '#5A6B84', type: 'other', desc: '完成「其他诈骗类型」答题挑战', earned: false, time: '' },
+    ],
   },
   helpType: null,                   // 当前求助类型
   lastHelpTime: 0,                  // 上次发起求助的时间戳（频率限制：两次间隔≥60秒）
@@ -37,19 +49,16 @@ const S = {
     wechat: true,                  // 微信绑定状态
     apple: false,                  // 苹果账号绑定状态
   },
-  newsPage: 0,                     // 资讯列表当前页
-  newsLoading: false,              // 资讯列表加载中
-  newsNoMore: false,               // 资讯列表无更多
 };
 
 let curProduct = null;
+let curRateId = null;               // 当前正在评价的记录 id
 let reportType = null;              // 举报线索选中的诈骗类型
 let complaintType = null;           // 投诉建议选中的反馈类型
 let quiz = null;                    // 测评会话
 let callTimerSec = 0;
 let timers = [];
 let stack = [];                     // 导航栈
-let newsPulling = false;            // 资讯列表下拉刷新中
 
 /* ---------- 工具 ---------- */
 const $ = s => document.querySelector(s);
@@ -121,7 +130,7 @@ function showRateLimitDlg(remaining) {
       goBtn.textContent = '立即发起求助';
       goBtn.classList.remove('btn-primary');
       goBtn.classList.add('btn-danger');
-      goBtn.onclick = () => { closeModal(m); $('#launchHelp').click(); };
+      goBtn.onclick = () => { closeModal(m); launchHelp(); };
     } else {
       goBtn.textContent = `请等待 ${sec}s`;
     }
@@ -195,15 +204,12 @@ SCREENS.login = {
     <div class="screen">
       <div class="login-hero">
         <div class="login-logo"><img src="assets/logo.svg" alt="反诈守护"><b>反诈守护</b></div>
-        <h1>黄金 5 分钟<br>真人守护，即时反诈</h1>
-        <p>遭遇疑似诈骗，一键视频连线反诈守护者<br>已拦截诈骗转账 <b>12,600+</b> 次</p>
+        <h1>黄金 5 分钟<br>真人守护，即时止损</h1>
+        <p>遭遇疑似诈骗，一键视频连线守护者<br>已拦截诈骗转账 <b>12,600+</b> 次</p>
       </div>
       <div class="login-body">
-        <div class="login-tabs">
-          <button data-ltab="onekey" class="${S.loginTab === 'onekey' ? 'on' : ''}">手机号一键登录</button>
-          <button data-ltab="code" class="${S.loginTab === 'code' ? 'on' : ''}">验证码登录</button>
-        </div>
         <div id="loginPane"></div>
+        <button class="onekey-link" id="toOnekey">${ic('i-phone')}<span>手机号一键登录</span>${ic('i-right')}</button>
         <div class="login-other">
           <div class="divider">其他登录方式</div>
           <div class="login-social">
@@ -212,70 +218,82 @@ SCREENS.login = {
           </div>
           <div class="login-agree">
             <span class="agree-check ${S.agreed ? 'on' : ''}" id="agreeCk">${ic('i-check')}</span>
-            <span>我已阅读并同意<a href="javascript:void 0" data-pp>《隐私政策》</a>与<a href="javascript:void 0" data-pp>《用户协议》</a>，并授权本应用获取本机号码用于登录</span>
+            <span>我已阅读并同意<a href="javascript:void 0" data-pp="privacy">《隐私政策》</a>与<a href="javascript:void 0" data-pp="terms">《用户协议》</a>，并授权本应用获取本机号码用于登录</span>
           </div>
         </div>
       </div>
     </div>`;
   },
   mount() {
-    document.querySelectorAll('[data-ltab]').forEach(b => b.onclick = () => { S.loginTab = b.dataset.ltab; render('login'); });
     $('#agreeCk').onclick = e => { S.agreed = !S.agreed; e.currentTarget.classList.toggle('on', S.agreed); };
-    document.querySelectorAll('[data-pp]').forEach(a => a.onclick = showPrivacy);
+    document.querySelectorAll('[data-pp]').forEach(a => a.onclick = () => go('legal', { type: a.dataset.pp }));
     $('#wxLogin').onclick = () => { if (!checkAgree()) return; S.loginVia = 'wechat'; go('bind-phone'); };
     $('#appleLogin').onclick = () => { if (!checkAgree()) return; S.loginVia = 'apple'; go('bind-phone'); };
+    /* 一键登录：跳转独立界面 */
+    $('#toOnekey').onclick = () => { if (!checkAgree()) return; go('login-onekey'); };
     renderLoginPane();
   }
 };
 
-function renderLoginPane() {
-  const pane = $('#loginPane');
-  if (S.loginTab === 'onekey') {
-    pane.innerHTML = `
-      <div class="phone-mock">
-        ${ic('i-phone')}
-        <div><b>138****8888</b><span>中国移动认证 · 本机号码</span></div>
+/* ============ 1b. 一键登录界面 ============ */
+SCREENS['login-onekey'] = {
+  html() {
+    return `
+    <div class="screen">
+      ${navbar('一键登录')}
+      <div class="login-onekey-body">
+        <div class="phone-mock">
+          ${ic('i-phone')}
+          <div><b>138****8888</b><span>中国移动认证 · 本机号码</span></div>
+        </div>
+        <button class="btn btn-primary btn-lg btn-block" id="onekeyBtn">本机号码一键登录</button>
+        <p style="text-align:center;font-size:var(--fs-xs);color:var(--ink-4);margin-top:14px">返回上一页可切换验证码登录</p>
       </div>
-      <button class="btn btn-primary btn-lg btn-block" id="onekeyBtn">本机号码一键登录</button>
-      <p style="text-align:center;font-size:var(--fs-xs);color:var(--ink-4);margin-top:14px">一键登录失败？可切换至验证码登录</p>`;
+    </div>`;
+  },
+  mount() {
+    bindBack(app);
     $('#onekeyBtn').onclick = () => {
       if (!checkAgree()) return;
       const btn = $('#onekeyBtn');
       btn.textContent = '运营商取号授权中…'; btn.disabled = true;
       tick(() => { btn.textContent = '登录成功，正在进入…'; tick(afterLogin, 700); }, 1100);
     };
-  } else {
-    pane.innerHTML = `
-      <div class="form-field" style="margin:0 0 14px"><input class="input" id="phoneInput" type="tel" maxlength="11" placeholder="请输入手机号"></div>
-      <div class="form-field" style="margin:0 0 20px">
-        <div class="input-row">
-          <input class="input" id="codeInput" type="tel" maxlength="6" placeholder="请输入6位验证码">
-          <button class="code-btn" id="codeBtn">获取验证码</button>
-        </div>
-      </div>
-      <button class="btn btn-primary btn-lg btn-block" id="codeLoginBtn">登 录</button>`;
-    let cool = 0;
-    $('#codeBtn').onclick = e => {
-      const phone = $('#phoneInput').value.trim();
-      if (!/^1\d{10}$/.test(phone)) return toast('请输入正确的 11 位手机号', 'i-alert');
-      cool = 60;
-      e.target.disabled = true;
-      e.target.textContent = `${cool}s 后重发`;
-      toast('验证码已发送（演示码：246810）', 'i-check');
-      every(() => {
-        cool--;
-        if (cool <= 0) { $('#codeBtn').disabled = false; $('#codeBtn').textContent = '重新获取'; clearTimers(); }
-        else $('#codeBtn').textContent = `${cool}s 后重发`;
-      }, 1000);
-    };
-    $('#codeLoginBtn').onclick = () => {
-      if (!checkAgree()) return;
-      if (!/^1\d{10}$/.test($('#phoneInput').value.trim())) return toast('请输入正确的手机号', 'i-alert');
-      if (!/^\d{6}$/.test($('#codeInput').value.trim())) return toast('请输入 6 位数字验证码', 'i-alert');
-      toast('登录成功', 'i-check');
-      tick(afterLogin, 500);
-    };
   }
+};
+
+function renderLoginPane() {
+  const pane = $('#loginPane');
+  pane.innerHTML = `
+    <div class="form-field" style="margin:0 0 14px"><input class="input" id="phoneInput" type="tel" maxlength="11" placeholder="请输入手机号"></div>
+    <div class="form-field" style="margin:0 0 20px">
+      <div class="input-row">
+        <input class="input" id="codeInput" type="tel" maxlength="6" placeholder="请输入6位验证码">
+        <button class="code-btn" id="codeBtn">获取验证码</button>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-lg btn-block" id="codeLoginBtn">登 录</button>`;
+  let cool = 0;
+  $('#codeBtn').onclick = e => {
+    const phone = $('#phoneInput').value.trim();
+    if (!/^1\d{10}$/.test(phone)) return toast('请输入正确的 11 位手机号', 'i-alert');
+    cool = 60;
+    e.target.disabled = true;
+    e.target.textContent = `${cool}s 后重发`;
+    toast('验证码已发送（演示码：246810）', 'i-check');
+    every(() => {
+      cool--;
+      if (cool <= 0) { $('#codeBtn').disabled = false; $('#codeBtn').textContent = '重新获取'; clearTimers(); }
+      else $('#codeBtn').textContent = `${cool}s 后重发`;
+    }, 1000);
+  };
+  $('#codeLoginBtn').onclick = () => {
+    if (!checkAgree()) return;
+    if (!/^1\d{10}$/.test($('#phoneInput').value.trim())) return toast('请输入正确的手机号', 'i-alert');
+    if (!/^\d{6}$/.test($('#codeInput').value.trim())) return toast('请输入 6 位数字验证码', 'i-alert');
+    toast('登录成功', 'i-check');
+    tick(afterLogin, 500);
+  };
 }
 
 function checkAgree() {
@@ -284,20 +302,15 @@ function checkAgree() {
 }
 function afterLogin() { resetTo(S.role ? (S.role === 'guardian' ? 'guard' : 'home') : 'role'); }
 
-/* 隐私政策弹窗（首次启动 & 协议链接共用） */
+/* 隐私政策弹窗（首次启动：协议链接跳 H5 查看详情） */
 function showPrivacy(fromBoot) {
   const m = openModal(`
-    <div class="dialog" style="text-align:left">
-      <h3 style="text-align:center">隐私政策与用户协议</h3>
-      <div class="privacy-text">
-        <h4>一、信息收集范围</h4>
-        为提供即时反诈守护服务，我们会收集：手机号（用于登录认证）、设备信息（用于安全风控）；守护者另需提供实名信息与人脸特征（用于资质认证，加密存储）。
-        <h4>二、通话录音与转写</h4>
-        守护通话将全程录音并由 ASR 引擎转写为文字存档，仅用于服务质量监督与合规审查，保留期限不少于 180 天，查阅权限仅限平台合规人员。
-        <h4>三、信息保护</h4>
-        我们遵循《个人信息保护法》，实名信息加密存储，通话数据采用 AES-256 加密传输。您有权随时导出或删除个人数据。
-        <h4>四、您的权利</h4>
-        您可拒绝授权摄像头/麦克风权限，但将无法使用视频守护功能；可在「我的-设置」中管理授权与注销账号。
+    <div class="dialog">
+      <h3 style="text-align:center">用户协议与隐私政策</h3>
+      <div class="d-sub" style="text-align:center">欢迎使用反诈守护。为保障您的合法权益，请阅读并同意以下协议，点击可查看完整内容。</div>
+      <div class="privacy-links">
+        <button class="pl-link" data-pp="terms">${ic('i-doc')}<span class="pl-txt">《用户协议》</span><span class="pl-arrow">${ic('i-right')}</span></button>
+        <button class="pl-link" data-pp="privacy">${ic('i-lock')}<span class="pl-txt">《隐私政策》</span><span class="pl-arrow">${ic('i-right')}</span></button>
       </div>
       <div class="d-btns">
         <button class="btn btn-plain" data-no>暂不同意</button>
@@ -305,9 +318,74 @@ function showPrivacy(fromBoot) {
       </div>
     </div>`);
   m.dataset.lock = fromBoot ? '1' : '';
+  /* 点击协议跳转 H5 查看详情 */
+  m.querySelectorAll('[data-pp]').forEach(a => a.onclick = () => go('legal', { type: a.dataset.pp, fromPrivacy: !!fromBoot }));
   m.querySelector('[data-yes]').onclick = () => { S.agreed = true; closeModal(m); if (fromBoot) go('login'); else render('login'); };
   m.querySelector('[data-no]').onclick = () => { closeModal(m); toast('需同意协议后方可使用本应用', 'i-alert'); if (fromBoot) tick(() => showPrivacy(true), 900); };
 }
+
+/* ============ 1b. 协议 H5 页（隐私政策 / 用户协议） ============ */
+const PRIVACY_HTML = `
+  <h3>一、信息收集范围</h3>
+  <p>为提供即时守护服务，我们会收集以下信息：</p>
+  <ul>
+    <li>手机号：用于登录认证与账号安全</li>
+    <li>设备信息：用于安全风控与异常登录检测</li>
+    <li>实名信息与人脸特征（仅守护者）：用于资质认证，加密存储</li>
+  </ul>
+  <h3>二、通话录音与转写</h3>
+  <p>守护通话将全程录音并由 ASR 引擎转写为文字存档，仅用于服务质量监督与合规审查，保留期限不少于 180 天，查阅权限仅限平台合规人员。</p>
+  <h3>三、信息保护</h3>
+  <p>我们遵循《个人信息保护法》，实名信息加密存储，通话数据采用 AES-256 加密传输。您有权随时导出或删除个人数据。</p>
+  <h3>四、您的权利</h3>
+  <ul>
+    <li>可拒绝授权摄像头/麦克风权限，但将无法使用视频守护功能</li>
+    <li>可在「我的-设置」中管理授权与注销账号</li>
+    <li>可随时导出或删除您的个人数据</li>
+  </ul>`;
+
+const TERMS_HTML = `
+  <h3>一、服务说明</h3>
+  <p>反诈守护是一款全民守护公益应用，通过连接求助者与守护者，提供实时视频守护指导服务。</p>
+  <h3>二、用户注册与账号</h3>
+  <p>用户需使用本人手机号注册登录，并对账号下的行为负责。请妥善保管账号信息，勿将验证码泄露给他人。</p>
+  <h3>三、使用规范</h3>
+  <ul>
+    <li>禁止利用本平台从事任何违法违规活动</li>
+    <li>守护者应如实提供认证信息，不得冒用他人身份</li>
+    <li>禁止骚扰、辱骂其他用户</li>
+  </ul>
+  <h3>四、免责声明</h3>
+  <p>本平台的守护服务仅提供守护咨询与建议，不构成任何法律意见。因用户自行决定转账等行为造成的损失，平台不承担责任。</p>
+  <h3>五、协议变更</h3>
+  <p>平台有权根据业务发展修改本协议，修改后将在应用内公示。继续使用即视为同意修改后的协议。</p>`;
+
+SCREENS.legal = {
+  html(p) {
+    const isPrivacy = p.type === 'privacy';
+    const title = isPrivacy ? '隐私政策' : '用户协议';
+    const content = isPrivacy ? PRIVACY_HTML : TERMS_HTML;
+    return `
+    <div class="screen">
+      ${navbar(title)}
+      <div class="legal-body">
+        <p class="legal-update">更新日期：2026-08-14</p>
+        ${content}
+      </div>
+    </div>`;
+  },
+  mount(p) {
+    if (p && p.fromPrivacy) {
+      /* 从隐私弹窗进入：返回后重新弹出隐私弹窗，继续同意流程 */
+      app.querySelectorAll('[data-back]').forEach(b => b.onclick = () => {
+        back();
+        tick(() => showPrivacy(true), 300);
+      });
+    } else {
+      bindBack(app);
+    }
+  }
+};
 
 /* ============ 2. 第三方登录 · 关联手机号 ============ */
 SCREENS['bind-phone'] = {
@@ -368,7 +446,7 @@ SCREENS.role = {
           <div class="rc-icon" style="background:linear-gradient(135deg,#1E6FC0,#185FA5)">${ic('i-alert')}</div>
           <div style="flex:1">
             <h2>我是求助者</h2>
-            <p>遭遇疑似诈骗时，一键发起视频求助，黄金5分钟内获得真人守护</p>
+            <p>遭遇疑似诈骗时，一键发起求助，黄金5分钟内获得真人守护</p>
           </div>
           ${ic('i-right', 'rc-arrow')}
         </button>
@@ -376,11 +454,12 @@ SCREENS.role = {
           <div class="rc-icon" style="background:linear-gradient(135deg,#12997A,#0F6E56)">${ic('i-shield')}</div>
           <div style="flex:1">
             <h2>我是守护者</h2>
-            <p>需完成实名认证与能力测评，在线接单守护他人，赚取积分兑换好礼</p>
+            <p>需完成实名认证，在线守护他人，赚取积分兑换好礼</p>
           </div>
           ${ic('i-right', 'rc-arrow')}
         </button>
-        <div class="proto-note" style="margin:10px 0 0">原型提示：选择「求助者」直接进入首页；选择「守护者」将体验完整的三步认证流程（实名活体 → 能力标签 → 能力测评）。</div>
+        <button class="skip-auth-btn" id="skipAuth">测试：跳过实名认证，直接进入守护者工作台</button>
+        <div class="proto-note" style="margin:10px 0 0">原型提示：选择「求助者」直接进入首页；选择「守护者」将体验实名活体认证流程，认证通过后直接进入工作台。</div>
       </div>
     </div>`;
   },
@@ -389,8 +468,16 @@ SCREENS.role = {
       const role = b.dataset.role;
       if (role === 'seeker') { S.role = 'seeker'; toast('已选择求助者身份', 'i-check'); resetTo('home'); }
       else if (S.guard.authed) { S.role = 'guardian'; resetTo('guard'); }
-      else { toast('首次成为守护者，请完成三步认证', 'i-alert'); go('auth-name'); }
+      else { toast('首次成为守护者，请完成实名认证', 'i-alert'); go('auth-name'); }
     });
+    /* 测试：跳过实名认证 */
+    const skip = $('#skipAuth');
+    if (skip) skip.onclick = () => {
+      S.guard.authed = true;
+      S.role = 'guardian';
+      toast('已跳过实名认证（测试模式）', 'i-check');
+      resetTo('guard');
+    };
   }
 };
 
@@ -402,8 +489,6 @@ SCREENS['auth-name'] = {
       ${navbar('守护者认证')}
       <div class="steps">
         <div class="step cur"><i>1</i><span>实名活体</span></div>
-        <div class="step"><i>2</i><span>能力标签</span></div>
-        <div class="step"><i>3</i><span>能力测评</span></div>
       </div>
       <div id="authStage" style="flex:1;display:flex;flex-direction:column"></div>
     </div>`;
@@ -457,7 +542,11 @@ function showFaceScan() {
     $('#faceScan').querySelector('.ic').style.color = 'var(--green)';
     $('#faceTip').innerHTML = '<span style="color:var(--green)">活体检测通过</span>';
     toast('实名认证成功', 'i-check');
-    tick(() => go('auth-tags'), 900);
+    tick(() => {
+      S.guard.authed = true;
+      S.role = 'guardian';
+      resetTo('guard');
+    }, 900);
   };
   $('#faceSkip').onclick = faceSuccess;
   $('#faceFail').onclick = () => {
@@ -489,8 +578,8 @@ SCREENS['auth-tags'] = {
         <div class="step"><i>3</i><span>能力测评</span></div>
       </div>
       <div style="padding:18px 22px 6px">
-        <h2 style="font-size:var(--fs-xl)">选择您擅长的反诈领域</h2>
-        <p style="color:var(--ink-3);font-size:var(--fs-md);margin-top:8px;line-height:1.7">标签与求助者发起的诈骗类型同源同步，<br>系统将按标签为您精准派单。<b style="color:var(--blue)">至少选择 1 个</b>。</p>
+        <h2 style="font-size:var(--fs-xl)">选择您擅长的守护领域</h2>
+        <p style="color:var(--ink-3);font-size:var(--fs-md);margin-top:8px;line-height:1.7">标签与求助者发起的诈骗类型同源同步，<br>系统将按标签为您精准匹配守护。<b style="color:var(--blue)">至少选择 1 个</b>。</p>
       </div>
       <div class="tag-grid" id="tagGrid">
         ${FRAUD_TYPES.map(t => `<button class="tag-pick" data-tag="${t.name}">${ic('i-check')}${t.name}</button>`).join('')}
@@ -522,12 +611,19 @@ function startQuiz(mode) {
   go('auth-quiz');
 }
 
+/* 勋章答题挑战（每枚勋章通过答题获取） */
+function startBadgeChallenge(badge) {
+  const pool = [...QUIZ_POOL].sort(() => Math.random() - .5).slice(0, 5);
+  quiz = { mode: 'badge', badge, pool, idx: 0, answers: [], results: [] };
+  go('auth-quiz');
+}
+
 SCREENS['auth-quiz'] = {
   html() {
     const q = quiz.pool[quiz.idx];
     return `
     <div class="screen">
-      ${navbar(quiz.mode === 'register' ? '守护者认证 · 能力测评' : '标签能力测评')}
+      ${navbar(quiz.mode === 'register' ? '守护者认证 · 能力测评' : quiz.mode === 'badge' ? `勋章挑战 · ${quiz.badge.name}` : '标签能力测评')}
       <div class="quiz-head">
         <div style="display:flex;font-size:var(--fs-sm);color:var(--ink-3);margin-bottom:8px">
           <span>第 <b style="color:var(--blue)">${quiz.idx + 1}</b> / ${quiz.pool.length} 题</span>
@@ -542,7 +638,7 @@ SCREENS['auth-quiz'] = {
             <span class="qo-key">${'ABCD'[i]}</span><span>${o}</span>
           </button>`).join('')}
       </div>
-      <div class="bottom-cta"><button class="btn btn-primary btn-lg btn-block" id="quizNext" disabled>${quiz.idx === quiz.pool.length - 1 ? '提交测评' : '下一题'}</button></div>
+      <div class="bottom-cta"><button class="btn btn-primary btn-lg btn-block" id="quizNext" disabled>${quiz.idx === quiz.pool.length - 1 ? (quiz.mode === 'badge' ? '提交挑战' : '提交测评') : '下一题'}</button></div>
     </div>`;
   },
   mount() {
@@ -573,12 +669,12 @@ SCREENS['auth-result'] = {
     <div class="screen">
       <div class="result-wrap">
         <div class="result-badge" style="background:${pass ? 'linear-gradient(135deg,#12997A,#0F6E56)' : 'linear-gradient(135deg,#C84B3C,#A32D2D)'}">
-          ${ic(pass ? 'i-check' : 'i-close')}
+          ${ic(pass ? (quiz.mode === 'badge' ? quiz.badge.icon : 'i-check') : 'i-close')}
         </div>
-        <h1 style="font-size:var(--fs-2xl)">${pass ? '测评通过！' : '测评未通过'}</h1>
+        <h1 style="font-size:var(--fs-2xl)">${pass ? (quiz.mode === 'badge' ? '挑战成功！' : '测评通过！') : (quiz.mode === 'badge' ? '挑战失败' : '测评未通过')}</h1>
         <p style="color:var(--ink-3);margin-top:12px;font-size:var(--fs-md);line-height:1.8">
           答对 <b style="color:${pass ? 'var(--green)' : 'var(--red)'};font-size:var(--fs-xl)">${right}</b> / ${quiz.pool.length} 题
-          ${pass ? (quiz.mode === 'register' ? '<br>恭喜您成为认证守护者，奖励 <b style="color:var(--gold)">+100 积分</b>' : '<br>新能力标签已生效') : '<br>正确率需达到 80%，请复习后再来挑战'}
+          ${pass ? (quiz.mode === 'register' ? '<br>恭喜您成为认证守护者，奖励 <b style="color:var(--gold)">+100 积分</b>' : quiz.mode === 'badge' ? '<br>恭喜获得勋章「<b style="color:var(--gold)">' + quiz.badge.name + '</b>」' : '<br>新能力标签已生效') : '<br>正确率需达到 80%，请复习后再来挑战'}
         </p>
         <div style="width:100%;margin-top:22px">
           ${quiz.pool.map((q, i) => `
@@ -592,7 +688,7 @@ SCREENS['auth-result'] = {
         </div>
         <div style="width:100%;margin-top:auto;padding-top:18px">
           ${pass
-            ? `<button class="btn btn-green btn-lg btn-block" id="resultOk">${quiz.mode === 'register' ? '开启守护之旅' : '完成'}</button>`
+            ? `<button class="btn btn-green btn-lg btn-block" id="resultOk">${quiz.mode === 'register' ? '开启守护之旅' : quiz.mode === 'badge' ? '查看我的勋章' : '完成'}</button>`
             : `<button class="btn btn-primary btn-lg btn-block" id="resultRetry">重新测试</button>
                <button class="btn btn-plain btn-block" style="margin-top:12px" id="resultQuit">返回</button>`}
         </div>
@@ -608,6 +704,11 @@ SCREENS['auth-result'] = {
         S.guard.points += 100;
         S.role = 'guardian';
         resetTo('guard');
+      } else if (quiz.mode === 'badge') {
+        quiz.badge.earned = true;
+        quiz.badge.time = '2026-08-13';
+        toast(`已获得勋章「${quiz.badge.name}」`, quiz.badge.icon);
+        resetTo('badge-game');
       } else {
         S.guard.tags = [...new Set([...S.guard.tags, S.pendingTags[0]])];
         toast('能力标签已生效', 'i-check');
@@ -615,9 +716,9 @@ SCREENS['auth-result'] = {
       }
     };
     const re = $('#resultRetry');
-    if (re) re.onclick = () => startQuiz(quiz.mode);
+    if (re) re.onclick = () => quiz.mode === 'badge' ? startBadgeChallenge(quiz.badge) : startQuiz(quiz.mode);
     const quit = $('#resultQuit');
-    if (quit) quit.onclick = () => resetTo(quiz.mode === 'register' ? 'auth-tags' : 'tags-manage');
+    if (quit) quit.onclick = () => resetTo(quiz.mode === 'register' ? 'auth-tags' : quiz.mode === 'badge' ? 'badge-game' : 'tags-manage');
   }
 };
 
@@ -633,164 +734,87 @@ SCREENS.home = {
           <button class="hh-bell" id="homeBell">${ic('i-msg')}<span class="dot"></span></button>
         </div>
         <h1>拿不准是不是诈骗？<br>别转钱，先问问守护者</h1>
-        <p>96110 联名反诈平台 · 真人视频在线守护</p>
+        <p>96110 联名守护平台 · 真人语音视频在线守护</p>
       </div>
       <div class="sos-card">
-        <button class="sos-btn" id="sosBtn">${ic('i-video')}获取反诈守护</button>
+        <button class="sos-btn" id="sosBtn">${ic('i-shield')}获取守护</button>
         <div class="sos-note">${ic('i-shield')}平均 23 秒接通 · 全程免费 · 通话录音保障权益</div>
+        <button class="sos-96110" id="home96110">${ic('i-phone')}拨打全国反诈电话 96110</button>
       </div>
       <div class="quick-grid">
         <button class="quick-item" data-q="records"><span class="qi" style="background:var(--blue-l);color:var(--blue)">${ic('i-doc')}</span>求助记录</button>
-        <button class="quick-item" data-q="class"><span class="qi" style="background:var(--green-l);color:var(--green)">${ic('i-book')}</span>反诈课堂</button>
-        <button class="quick-item" data-q="report"><span class="qi" style="background:var(--gold-l);color:var(--gold)">${ic('i-megaphone')}</span>举报线索</button>
         <button class="quick-item" data-q="messages"><span class="qi" style="background:var(--red-l);color:var(--red)">${ic('i-msg')}</span>我的消息</button>
       </div>
       <div class="notice-bar">${ic('i-alert')}预警：近期"冒充客服退款"诈骗高发，凡要求共享屏幕的都是骗子！</div>
-      <div class="sec-title">反诈资讯<span class="more" data-q="news-list">更多${ic('i-right')}</span></div>
-      <div class="fraud-news">
-        ${NEWS.slice(0, 3).map(n => `
-          <button class="news-item" data-news="${n.id}">
-            <div class="news-cover" style="background:${n.color}">${ic(n.icon)}</div>
-            <div class="news-body"><div class="news-title">${n.title}</div><div class="news-meta">${n.meta}</div></div>
-          </button>`).join('')}
-      </div>
     </div>`;
   },
   mount() {
-    $('#sosBtn').onclick = () => go('help-types');
+    $('#sosBtn').onclick = launchHelp;
     $('#homeBell').onclick = () => resetTo('messages');
+    /* 拨打 96110 */
+    $('#home96110').onclick = () => {
+      confirmDlg('拨打反诈专线', '即将拨打全国统一反诈专线 96110，疑似被骗请立即拨打。', '立即拨打', () => {
+        toast('原型演示：呼叫 96110（实际环境将调起系统拨号）', 'i-phone');
+      });
+    };
     app.querySelectorAll('[data-q]').forEach(b => b.onclick = () => {
-      const k = b.dataset.q;
-      if (k === 'class') return toast('反诈课堂为 V2 内容模块，原型暂未展开', 'i-book');
-      if (k === 'report') return go('report-clue');
-      if (k === 'news-list') return go('news-list');
-      resetTo(k);
+      resetTo(b.dataset.q);
     });
-    app.querySelectorAll('[data-news]').forEach(b => b.onclick = () => go('news-detail', { id: b.dataset.news }));
   }
 };
 
-/* ============ 9. 选择诈骗类型 ============ */
-SCREENS['help-types'] = {
-  html() {
-    const kw = S.typeSearch.trim();
-    const list = FRAUD_TYPES.filter(t => !kw || t.name.includes(kw) || t.desc.includes(kw));
-    /* 频率限制：计算距上次发起求助的剩余秒数 */
-    const rlElapsed = S.lastHelpTime > 0 ? Math.floor((Date.now() - S.lastHelpTime) / 1000) : 999;
-    const rlRemain = Math.max(0, 60 - rlElapsed);
-    const rlActive = rlRemain > 0;
-    return `
-    <div class="screen">
-      ${navbar('选择遇到的诈骗类型')}
-      <div id="typeList" style="flex:1">
-        ${list.length ? list.map(t => `
-          <button class="type-card ${S.helpType === t.id ? 'on' : ''}" data-type="${t.id}">
-            <div class="tc-icon" style="background:${t.color}">${ic(t.icon)}</div>
-            <div style="flex:1;min-width:0">
-              <h3>${t.name}${t.hot ? ' <span class="tag-mini tag-red">高发</span>' : ''}</h3>
-              <p>${t.desc}</p>
-            </div>
-            <span class="tc-check">${ic('i-check')}</span>
-          </button>`).join('')
-        : `<div class="empty">${ic('i-search')}<p>未找到相关类型，可选择"其他诈骗类型"</p></div>`}
+/* ============ 9. 发起求助（获取守护 → 冷却检查 → 自动匹配） ============ */
+function launchHelp() {
+  /* 最外层频率限制：1 分钟冷却 */
+  const elapsed = S.lastHelpTime > 0 ? Date.now() - S.lastHelpTime : 999999;
+  if (elapsed < 60000) {
+    showRateLimitDlg(Math.ceil((60000 - elapsed) / 1000));
+    return;
+  }
+  /* 系统自动识别诈骗类型，无需用户选择标签，直接进入匹配 */
+  S.helpType = FRAUD_TYPES[Math.floor(Math.random() * FRAUD_TYPES.length)].id;
+  showPermDialog();
+}
+
+/* 申请通话权限弹窗（点击「获取守护」后进入） */
+function showPermDialog() {
+  const m = openModal(`
+    <div class="dialog">
+      <div class="d-icon" style="background:var(--blue-l);color:var(--blue)">${ic('i-video')}</div>
+      <h3>申请通话权限</h3>
+      <div class="d-sub">视频守护需要使用您的<b>摄像头</b>与<b>麦克风</b>权限<br>通话将录音存档，用于服务质量监督</div>
+      <div class="d-btns">
+        <button class="btn btn-plain" data-deny>拒绝</button>
+        <button class="btn btn-primary" data-allow>允许并求助</button>
       </div>
-      ${rlActive ? `
-      <div class="rate-limit-banner" id="rlBanner">
-        ${ic('i-clock')}
-        <div style="flex:1">
-          <b>求助频率限制</b>
-          <p>为防止恶意频繁发起求助，两次发起需间隔 1 分钟，请等待 <b id="rlCount">${rlRemain}</b> 秒</p>
+    </div>`);
+  m.querySelector('[data-allow]').onclick = () => { closeModal(m); S.lastHelpTime = Date.now(); go('help-waiting'); };
+  m.querySelector('[data-deny]').onclick = () => {
+    closeModal(m);
+    const m2 = openModal(`
+      <div class="dialog">
+        <div class="d-icon" style="background:var(--orange-l);color:var(--orange-d)">${ic('i-alert')}</div>
+        <h3>权限未开启</h3>
+        <div class="d-sub">没有摄像头/麦克风权限将无法进行视频守护<br>请前往系统设置开启权限</div>
+        <div class="d-btns">
+          <button class="btn btn-plain" data-bk>返回</button>
+          <button class="btn btn-primary" data-go>去开启</button>
         </div>
-      </div>` : ''}
-      <div class="bottom-cta">
-        <button class="btn btn-danger btn-lg btn-block" id="launchHelp" ${S.helpType ? '' : 'disabled'}>
-          ${ic('i-video')}${rlActive ? `请等待 ${rlRemain}s 后发起` : '立即发起视频求助'}
-        </button>
-        <button style="margin-top:10px;font-size:var(--fs-xs);color:var(--ink-4);text-decoration:underline" id="demoRateLimit">演示：模拟刚发起过求助（触发频率限制）</button>
-      </div>
-    </div>`;
-  },
-  mount() {
-    bindBack(app);
-    app.querySelectorAll('[data-type]').forEach(b => b.onclick = () => { S.helpType = b.dataset.type; render('help-types'); });
-
-    /* 频率限制：若处于限制中，启动倒计时刷新横幅与按钮 */
-    const rlElapsed0 = S.lastHelpTime > 0 ? Math.floor((Date.now() - S.lastHelpTime) / 1000) : 999;
-    const rlRemain0 = Math.max(0, 60 - rlElapsed0);
-    if (rlRemain0 > 0) {
-      clearTimers(); /* 清理上一次 mount 残留的定时器，避免重复倒计时 */
-      let rlSec = rlRemain0;
-      const rlIv = every(() => {
-        rlSec--;
-        if (rlSec <= 0) {
-          clearTimers();
-          render('help-types');
-          toast('频率限制已解除，可以发起求助了', 'i-check');
-        } else {
-          const el = document.querySelector('#rlCount');
-          if (el) el.textContent = rlSec;
-          const btn = document.querySelector('#launchHelp');
-          if (btn) btn.innerHTML = ic('i-video') + `请等待 ${rlSec}s 后发起`;
-        }
-      }, 1000);
-    }
-
-    /* 演示按钮：模拟刚发起过求助 */
-    const demoRL = $('#demoRateLimit');
-    if (demoRL) demoRL.onclick = () => {
-      S.lastHelpTime = Date.now();
-      toast('已模拟记录：刚刚发起过一次求助', 'i-clock');
-      render('help-types');
-    };
-
-    $('#launchHelp').onclick = () => {
-      /* 前置拦截：检查 1 分钟频率限制 */
-      const elapsed = S.lastHelpTime > 0 ? Date.now() - S.lastHelpTime : 999999;
-      if (elapsed < 60000) {
-        const remaining = Math.ceil((60000 - elapsed) / 1000);
-        showRateLimitDlg(remaining);
-        return;
-      }
-      const m = openModal(`
-        <div class="dialog">
-          <div class="d-icon" style="background:var(--blue-l);color:var(--blue)">${ic('i-video')}</div>
-          <h3>申请通话权限</h3>
-          <div class="d-sub">视频守护需要使用您的<b>摄像头</b>与<b>麦克风</b>权限<br>通话将录音存档，用于服务质量监督</div>
-          <div class="d-btns">
-            <button class="btn btn-plain" data-deny>拒绝</button>
-            <button class="btn btn-primary" data-allow>允许并求助</button>
-          </div>
-        </div>`);
-      m.querySelector('[data-allow]').onclick = () => { closeModal(m); S.lastHelpTime = Date.now(); go('help-waiting'); };
-      m.querySelector('[data-deny]').onclick = () => {
-        closeModal(m);
-        const m2 = openModal(`
-          <div class="dialog">
-            <div class="d-icon" style="background:var(--orange-l);color:var(--orange-d)">${ic('i-alert')}</div>
-            <h3>权限未开启</h3>
-            <div class="d-sub">没有摄像头/麦克风权限将无法进行视频守护<br>请前往系统设置开启权限</div>
-            <div class="d-btns">
-              <button class="btn btn-plain" data-bk>返回</button>
-              <button class="btn btn-primary" data-go>去开启</button>
-            </div>
-          </div>`);
-        m2.querySelector('[data-bk]').onclick = () => closeModal(m2);
-        m2.querySelector('[data-go]').onclick = () => { closeModal(m2); toast('原型演示：已模拟开启权限', 'i-check'); };
-      };
-    };
-  }
-};
+      </div>`);
+    m2.querySelector('[data-bk]').onclick = () => closeModal(m2);
+    m2.querySelector('[data-go]').onclick = () => { closeModal(m2); toast('原型演示：已模拟开启权限', 'i-check'); };
+  };
+}
 
 /* ============ 10. 等待匹配 ============ */
 SCREENS['help-waiting'] = {
   html() {
-    const type = FRAUD_TYPES.find(t => t.id === S.helpType);
     const C = 2 * Math.PI * 95;
     return `
     <div class="screen">
       <div class="wait-wrap">
-        <h2 style="font-size:var(--fs-xl);margin-top:8px">正在为您匹配反诈专员<span class="wait-dots"><i></i><i></i><i></i></span></h2>
-        <p style="color:var(--ink-3);font-size:var(--fs-sm);margin-top:8px">求助类型：${type ? type.name : '—'} · 按标签与信用权重智能派单</p>
+        <h2 style="font-size:var(--fs-xl);margin-top:8px">正在为您匹配守护者<span class="wait-dots"><i></i><i></i><i></i></span></h2>
+        <p style="color:var(--ink-3);font-size:var(--fs-sm);margin-top:8px">智能匹配最近守护者</p>
         <div class="wait-ring">
           <svg width="210" height="210">
             <circle class="wr-bg" cx="105" cy="105" r="95" fill="none" stroke-width="10"/>
@@ -826,7 +850,7 @@ SCREENS['help-waiting'] = {
         <div class="dialog">
           <div class="d-icon" style="background:var(--orange-l);color:var(--orange-d)">${ic('i-clock')}</div>
           <h3>连接超时</h3>
-          <div class="d-sub">当前暂无专员响应<br>您可以继续等待或稍后再试</div>
+          <div class="d-sub">当前暂无守护者响应<br>您可以继续等待或稍后再试</div>
           <div class="d-btns">
             <button class="btn btn-plain" data-cancel>取消求助</button>
             <button class="btn btn-primary" data-wait>继续等待</button>
@@ -841,7 +865,7 @@ SCREENS['help-waiting'] = {
       const m = openModal(`
         <div class="dialog">
           <h3>确定要取消守护求助吗？</h3>
-          <div class="d-sub">取消后将中止为您匹配反诈专员</div>
+          <div class="d-sub">取消后将中止为您匹配守护者</div>
           <div class="d-btns">
             <button class="btn btn-plain" data-x>继续等待</button>
             <button class="btn btn-danger" data-ok>取消求助</button>
@@ -855,79 +879,177 @@ SCREENS['help-waiting'] = {
 
 /* ============ 11. 视频通话 ============ */
 SCREENS.call = {
-  dark: true,
   html(p) {
     const isGuard = p.as === 'guard';
     const type = FRAUD_TYPES.find(t => t.id === S.helpType) || FRAUD_TYPES[3];
     callTimerSec = 0;
+    const peerName = isGuard ? `求助者：${S.seeker.name}` : '李师傅';
+    const peerIcon = isGuard ? 'i-user' : 'i-shield';
+    const peerCls = isGuard ? ' requester' : '';
+    const badge = isGuard
+      ? ''
+      : `${ic('i-shield')}<span>认证守护者 · L4 守护深耕者</span>`;
     return `
     <div class="screen call-screen">
-      <div class="call-remote">
-        <div class="cr-bg"></div>
-        <div class="call-status">
-          <div class="cs-name">${isGuard ? '求助者 · ' + S.seeker.name : '守护者 · 李师傅'}（${type.name}）</div>
-          <div class="cs-time" id="callTime">00:00</div>
-        </div>
-        <div class="call-avatar">
-          <div class="ca-ring">${ic(isGuard ? 'i-user' : 'i-shield')}</div>
-          <b>${isGuard ? S.seeker.name : '李师傅'}</b>
-          <div class="ca-tags">
-            ${isGuard
-              ? '<span class="tag-mini">求助者</span><span class="tag-mini">已核实来电</span>'
-              : '<span class="tag-mini">L4 反诈深耕者</span><span class="tag-mini">信用 S 级</span>'}
+      <div class="call-bg" id="callBg"></div>
+      <div class="call-stage">
+        <div class="call-me" id="callMe">${ic('i-user')}<span>我</span></div>
+        <div class="call-peer">
+          <div class="peer-avatar${peerCls}" id="peerAvatar">
+            <div class="pa-ring">${ic(peerIcon)}</div>
+            <div class="pa-name">${peerName}</div>
+            ${badge ? `<div class="pa-badge">${badge}</div>` : ''}
           </div>
+          <div class="call-state" id="callState">
+            <span class="cs-ico" id="csIco">${ic('i-phone')}</span>
+            <span id="csText">语音通话中</span>
+            <span class="cs-time" id="callTime">00:00</span>
+          </div>
+          <div class="rec-hint"><span class="rec-dot"></span>通话录音存档 · 用于服务质量监督</div>
         </div>
-        <div class="call-self" id="selfView">${ic('i-user')}<span>我</span></div>
-        <div class="call-caption" id="caption"></div>
       </div>
-      <div class="call-record"><span class="rec-dot"></span>通话内容将被录音并转为文字存档，用于服务质量监督与合规审查</div>
+      <div class="call-chat">
+        <div class="chat-handle" id="chatHandle"><span class="ch-bar"></span>${ic('i-right', 'ch-chev')}</div>
+        <div class="chat-msgs" id="chatMsgs"></div>
+        <div class="chat-input">
+          <button class="ci-btn" id="chatImgBtn" title="发送图片">${ic('i-img')}</button>
+          <input class="ci-field" id="chatInput" type="text" placeholder="输入消息..." />
+          <button class="ci-send" id="chatSendBtn" title="发送">${ic('i-send')}</button>
+        </div>
+      </div>
       <div class="call-controls">
         <button class="cc-btn" id="muteBtn"><span class="cc-circle">${ic('i-mic')}</span>静音</button>
+        <button class="cc-btn" id="camBtn"><span class="cc-circle">${ic('i-video-off')}</span>开启视频</button>
+        <button class="cc-btn" id="spkBtn"><span class="cc-circle">${ic('i-volume')}</span>扬声器</button>
         <button class="cc-btn hangup" id="hangBtn"><span class="cc-circle">${ic('i-hangup')}</span>挂断</button>
-        <button class="cc-btn" id="camBtn"><span class="cc-circle">${ic('i-cam-switch')}</span>翻转镜头</button>
       </div>
     </div>`;
   },
   mount(p) {
     const isGuard = p.as === 'guard';
+    const type = FRAUD_TYPES.find(t => t.id === S.helpType) || FRAUD_TYPES[3];
+    const peerIcon = isGuard ? 'i-user' : 'i-shield';
+
+    /* 通话计时 */
     every(() => {
       callTimerSec++;
       const m = String(Math.floor(callTimerSec / 60)).padStart(2, '0');
       const s = String(callTimerSec % 60).padStart(2, '0');
       const el = $('#callTime'); if (el) el.textContent = `${m}:${s}`;
     }, 1000);
-    /* 模拟守护者话术字幕 */
+
+    /* 聊天区 */
+    const box = $('#chatMsgs');
+    const ts = document.createElement('div');
+    ts.className = 'msg-time';
+    ts.textContent = '今天';
+    box.appendChild(ts);
+    const appendMsg = (who, text) => {
+      const d = document.createElement('div');
+      d.className = 'msg ' + (who === 'me' ? 'me' : 'peer');
+      d.innerHTML = `<div class="msg-ava">${who === 'me' ? '我' : ic(peerIcon)}</div><div class="msg-bubble">${esc(text)}</div>`;
+      box.appendChild(d);
+      box.scrollTop = box.scrollHeight;
+    };
+    /* 初始对话（双角色差异化） */
+    const initMsgs = isGuard
+      ? [
+          { who: 'peer', text: '守护者您好，我刚接到一个电话说我涉嫌洗钱，还报出了我的身份证号……' },
+          { who: 'me', text: `您先别着急，这可能是${type.name}。您千万别转账，我先帮您分析情况。` },
+          { who: 'peer', text: '好的好的，我还没有转账，那我现在该怎么办？' },
+        ]
+      : [
+          { who: 'peer', text: `您好，我是守护者李师傅。已收到您的「${type.name}」求助，请问遇到了什么情况？` },
+          { who: 'me', text: '对方说我的账户涉嫌洗钱，让我把钱转到"安全账户"验证。' },
+          { who: 'peer', text: `这是典型的${type.name}，千万不要转账！我这就帮您核实。` },
+        ];
+    initMsgs.forEach(m => appendMsg(m.who, m.text));
+
+    /* 通话字幕实时追加为对方消息 */
+    const captions = isGuard ? SEEKER_CAPTIONS : CALL_CAPTIONS;
     let ci = 0;
     const cap = () => {
-      if (ci >= CALL_CAPTIONS.length) return;
-      const box = $('#caption'); if (!box) return;
-      const d = document.createElement('div');
-      d.className = 'caption-line';
-      d.innerHTML = `<b>${isGuard ? '求助者' : '守护者'}：</b>${CALL_CAPTIONS[ci]}`;
-      box.appendChild(d);
-      while (box.children.length > 2) box.firstChild.remove();
+      if (ci >= captions.length) return;
+      appendMsg('peer', captions[ci]);
       ci++;
-      tick(cap, 3600);
+      tick(cap, 4200);
     };
-    tick(cap, 1400);
-    let muted = false, flipped = false;
+    tick(cap, 2600);
+
+    /* 视频开关 */
+    let camOn = false;
+    const setCam = (on) => {
+      camOn = on;
+      $('.call-screen').classList.toggle('cam-on', on);
+      $('#callBg').classList.toggle('on', on);
+      $('#callMe').classList.toggle('show', on);
+      $('#csText').textContent = on ? '视频通话中' : '语音通话中';
+      $('#csIco').innerHTML = ic(on ? 'i-video' : 'i-phone');
+      const btn = $('#camBtn');
+      btn.querySelector('.cc-circle').innerHTML = ic(on ? 'i-video' : 'i-video-off');
+      btn.lastChild.textContent = on ? '关闭视频' : '开启视频';
+      btn.classList.toggle('on', on);
+    };
+    $('#camBtn').onclick = () => { setCam(!camOn); toast(camOn ? '已开启视频' : '已关闭视频', 'i-video'); };
+
+    /* 静音 */
+    let muted = false;
     $('#muteBtn').onclick = e => {
       muted = !muted;
       e.currentTarget.classList.toggle('on', muted);
       e.currentTarget.querySelector('.cc-circle').innerHTML = ic(muted ? 'i-mic-off' : 'i-mic');
       e.currentTarget.lastChild.textContent = muted ? '已静音' : '静音';
+      toast(muted ? '已静音' : '已取消静音', muted ? 'i-mic-off' : 'i-mic');
     };
-    $('#camBtn').onclick = e => {
-      flipped = !flipped;
-      e.currentTarget.classList.toggle('on', flipped);
-      $('#selfView').style.background = flipped ? 'linear-gradient(150deg,#3E5A34,#22301C)' : '';
-      toast(flipped ? '已切换至后置摄像头' : '已切换至前置摄像头');
+
+    /* 扬声器 */
+    let spkOff = false;
+    $('#spkBtn').onclick = e => {
+      spkOff = !spkOff;
+      e.currentTarget.classList.toggle('on', spkOff);
+      e.currentTarget.querySelector('.cc-circle').innerHTML = ic(spkOff ? 'i-volume-off' : 'i-volume');
+      e.currentTarget.lastChild.textContent = spkOff ? '听筒' : '扬声器';
+      toast(spkOff ? '已切换为听筒模式' : '已切换为扬声器', 'i-volume');
     };
+
+    /* 聊天输入发送 */
+    const sendMsg = () => {
+      const inp = $('#chatInput');
+      const v = inp.value.trim();
+      if (!v) return;
+      appendMsg('me', v);
+      inp.value = '';
+      tick(() => appendMsg('peer', isGuard ? '好的，我记下了，就按您说的办。' : '好的，我了解了，请您继续。'), 1200);
+    };
+    $('#chatSendBtn').onclick = sendMsg;
+    $('#chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
+    $('#chatImgBtn').onclick = () => toast('图片发送为演示占位', 'i-img');
+
+    /* 聊天框折叠/展开：点击顶部把手收缩到按钮区上方，再次点击展开 */
+    let collapsed = false;
+    $('#chatHandle').onclick = () => {
+      collapsed = !collapsed;
+      $('.call-screen').classList.toggle('collapsed', collapsed);
+    };
+
+    /* 挂断 */
     $('#hangBtn').onclick = () => {
       clearTimers();
       toast('通话结束', 'i-check');
-      if (isGuard) tick(showGuardReward, 500);
-      else tick(() => go('rate'), 500);
+      if (isGuard) {
+        tick(showGuardReward, 500);
+      } else {
+        /* 创建待评价记录，防止意外退出后无法评价 */
+        const mm = String(Math.floor(callTimerSec / 60)).padStart(2, '0');
+        const ss = String(callTimerSec % 60).padStart(2, '0');
+        const rec = {
+          id: 'r' + Date.now(), type: type.name, seeker: S.seeker.name, guardName: '李师傅',
+          lv: 4, dur: `${mm}:${ss}`, time: '刚刚', star: 0, status: 'pending', tags: [], feedback: '',
+        };
+        S.records.unshift(rec);
+        curRateId = rec.id;
+        tick(() => go('rate'), 500);
+      }
     };
   }
 };
@@ -936,7 +1058,6 @@ SCREENS.call = {
 function showGuardReward() {
   const gain = Math.round(10 * 1.5);   // L3 加成 1.5x
   S.guard.points += gain;
-  S.guard.credit = Math.min(100, S.guard.credit + 3);
   S.guard.helps += 1;
   const m = openModal(`
     <div class="dialog">
@@ -946,7 +1067,7 @@ function showGuardReward() {
         <div class="reward-num">+${gain} 积分</div>
         <div class="reward-lines">
           基础 10 分 × L3 加成 1.5x<br>
-          信用分 <b>+3</b>（当前 ${S.guard.credit} 分） · 累计帮助 <b>${S.guard.helps}</b> 次
+          累计帮助 <b>${S.guard.helps}</b> 次
         </div>
       </div>
       <div class="d-btns" style="margin-top:20px"><button class="btn btn-green" data-ok>太好了</button></div>
@@ -957,13 +1078,18 @@ function showGuardReward() {
 /* ============ 12. 服务评价 ============ */
 SCREENS.rate = {
   html() {
+    const rec = S.records.find(r => r.id === curRateId) || {};
+    const guardName = rec.guardName || '李师傅';
+    const lv = rec.lv || 4;
+    const lvName = LEVELS[lv - 1] ? `${lv}级${LEVELS[lv - 1].name}` : `L${lv}`;
+    const dur = rec.dur || '6分23秒';
     return `
     <div class="screen">
       ${navbar('服务评价')}
       <div class="rate-hero">
         <div class="rh-avatar">${ic('i-shield')}</div>
-        <h2 style="font-size:var(--fs-lg)">守护者 · 4级反诈深耕者</h2>
-        <p style="color:var(--ink-3);font-size:var(--fs-sm);margin-top:5px">本次守护通话 06:23 · 感谢您的信任</p>
+        <h2 style="font-size:var(--fs-lg)">守护者 · ${lvName}</h2>
+        <p style="color:var(--ink-3);font-size:var(--fs-sm);margin-top:5px">本次守护通话 ${dur} · 感谢您的信任</p>
       </div>
       <div class="stars" id="starRow" style="margin-top:20px">
         ${[1, 2, 3, 4, 5].map(i => `<button data-star="${i}">${ic('i-star')}</button>`).join('')}
@@ -973,7 +1099,7 @@ SCREENS.rate = {
       <div class="form-field" style="margin-top:16px">
         <textarea class="input" id="rateText" placeholder="其他意见或建议（选填）"></textarea>
       </div>
-      <div class="rate-summary">评价提交后，守护者将实时获得信用分与积分激励：<br><b>4-5 星</b>：+5 积分 / 信用 +2~5 分；<b>1-2 星</b>：信用 -3~5 分</div>
+      <div class="rate-summary">评价提交后，守护者将实时获得积分激励：<br><b>4-5 星</b>：+5 积分</div>
       <div class="bottom-cta"><button class="btn btn-primary btn-lg btn-block" id="rateSubmit" disabled>提交评价</button></div>
     </div>`;
   },
@@ -996,13 +1122,24 @@ SCREENS.rate = {
       });
     });
     $('#rateSubmit').onclick = () => {
-      S.records.unshift({
-        id: 'r' + Date.now(), type: (FRAUD_TYPES.find(t => t.id === S.helpType) || {}).name || '其他诈骗类型',
-        phone: '138****6688', lv: 4, dur: '6分23秒', time: '刚刚', star, status: 'done',
-        tags: [...picked], feedback: $('#rateText').value.trim(),
-      });
+      /* 更新对应的待评价记录 */
+      const rec = S.records.find(r => r.id === curRateId);
+      if (rec) {
+        rec.star = star;
+        rec.status = 'done';
+        rec.tags = [...picked];
+        rec.feedback = $('#rateText').value.trim();
+      } else {
+        /* 兜底：无待评价记录时，直接新增一条已评价记录 */
+        S.records.unshift({
+          id: 'r' + Date.now(), type: (FRAUD_TYPES.find(t => t.id === S.helpType) || {}).name || '其他诈骗类型',
+          seeker: S.seeker.name, guardName: '李师傅', lv: 4, dur: '6分23秒', time: '刚刚', star, status: 'done',
+          tags: [...picked], feedback: $('#rateText').value.trim(),
+        });
+      }
+      curRateId = null;
       toast('评价提交成功，感谢您的反馈', 'i-check');
-      tick(() => resetTo('home'), 700);
+      tick(() => resetTo('records'), 700);
     };
   }
 };
@@ -1013,7 +1150,9 @@ SCREENS.guard = {
   html() {
     const g = S.guard;
     const lv = LEVELS[g.level - 1];
-    const grade = CREDIT_GRADES.find(c => g.credit >= c.min && g.credit <= c.max);
+    const earnedBadges = (g.badges || []).filter(b => b.earned).length;
+    const badgeTotal = (g.badges || []).length;
+    const badgePct = badgeTotal ? Math.round(earnedBadges / badgeTotal * 100) : 0;
     return `
     <div class="screen has-tab">
       <div class="guard-hero ${g.online ? '' : 'off'}">
@@ -1021,82 +1160,121 @@ SCREENS.guard = {
           <div><div class="hh-hello">${g.online ? '守护在线中' : '当前休息中'}</div><div class="hh-name">${g.name}</div></div>
           <button class="hh-bell" id="gBell">${ic('i-msg')}</button>
         </div>
-        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
           <span class="tag-mini" style="background:rgba(255,255,255,.2);color:#fff">L${g.level} ${lv.name}</span>
-          <span class="tag-mini" style="background:rgba(255,255,255,.2);color:#fff">信用 ${grade.g} · ${g.credit}分</span>
         </div>
       </div>
       <div class="online-card">
-        <div class="online-status ${g.online ? 'on' : ''}"><span class="os-dot"></span>${g.online ? '正在接收派单' : '已暂停接单'}</div>
+        <div class="online-status ${g.online ? 'on' : ''}"><span class="os-dot"></span>${g.online ? '正在接收守护请求' : '已暂停守护'}</div>
+        ${g.online ? '<div class="online-timer" id="onlineTimer">已在线 00:00</div>' : ''}
         <div class="radar-wrap ${g.online ? 'on' : ''}">
           <div class="rw-ring"></div><div class="rw-ring"></div><div class="rw-ring"></div>
           <div class="radar-core">${ic('i-radar')}</div>
         </div>
-        <p style="font-size:var(--fs-sm);color:var(--ink-3);line-height:1.7">${g.online ? '保持在线，系统按您的能力标签派单<br>连续在线满 2 小时 +20 积分' : '开启在线状态后，即可接收求助派单'}</p>
+        <p style="font-size:var(--fs-sm);color:var(--ink-3);line-height:1.7">${g.online ? '保持在线，系统将为您匹配求助<br>连续在线满 2 小时 +20 积分' : '开启在线状态后，即可接收守护请求'}</p>
         <button class="btn ${g.online ? 'btn-plain' : 'btn-green'} btn-lg btn-block" style="margin-top:14px" id="onlineBtn">
-          ${g.online ? '暂停接单' : '开启在线守护'}
+          ${g.online ? '暂停守护' : '开启在线守护'}
         </button>
-        ${g.online ? '<button style="margin-top:10px;font-size:var(--fs-xs);color:var(--ink-4);text-decoration:underline" id="demoOrder">演示：立即模拟一笔派单</button>' : ''}
+        ${g.online ? '<button style="margin-top:10px;font-size:var(--fs-xs);color:var(--ink-4);text-decoration:underline" id="demoOrder">演示：立即模拟一笔守护请求</button>' : ''}
       </div>
       <div class="stat-row">
-        <div class="stat-cell"><b style="color:var(--blue)">3</b><span>今日接单</span></div>
+        <div class="stat-cell"><b style="color:var(--blue)">3</b><span>今日守护</span></div>
         <div class="stat-cell"><b style="color:var(--green)">${g.helps}</b><span>累计帮助</span></div>
         <div class="stat-cell"><b style="color:var(--gold)">${g.score}</b><span>平均评分</span></div>
       </div>
       <div class="mini-cards">
         <button class="mini-card" data-g="level"><div class="mc-top" style="color:var(--gold)">${ic('i-medal')}我的等级</div><b>L${g.level} ${lv.name}</b><div class="mc-extra">积分加成 ${lv.ratio}，升级进度 ${Math.min(100, Math.round(g.helps / LEVELS[g.level].helps * 100))}%</div></button>
-        <button class="mini-card" data-g="credit"><div class="mc-top" style="color:var(--blue)">${ic('i-credit')}信用中心</div><b>${g.credit} 分 · ${grade.g}级</b><div class="mc-extra">${grade.name} · 派单权重 ${grade.weight}</div></button>
-        <button class="mini-card" data-g="tags-manage"><div class="mc-top" style="color:var(--green)">${ic('i-tag')}能力标签</div><b>${g.tags.length} 个标签</b><div class="mc-extra">标签越多，接单场景越广</div></button>
         <button class="mini-card" data-g="records"><div class="mc-top" style="color:var(--orange-d)">${ic('i-doc')}守护记录</div><b>${g.helps} 次服务</b><div class="mc-extra">查看全部服务与评价</div></button>
       </div>
-      <div style="height:22px"></div>
+      <button class="badge-entry" data-g="badge-game">
+        <div class="be-icon">${ic('i-medal')}</div>
+        <div class="be-info">
+          <div class="be-title">守护勋章<span class="be-count">${earnedBadges}/${badgeTotal}</span></div>
+          <div class="be-sub">答题闯关赢勋章，秀出你的守护实力</div>
+          <div class="be-bar"><i style="width:${badgePct}%"></i></div>
+        </div>
+        ${ic('i-right', 'be-arrow')}
+      </button>
+      <div style="height:12px"></div>
     </div>`;
   },
   mount() {
     $('#gBell').onclick = () => resetTo('messages');
     app.querySelectorAll('[data-g]').forEach(b => b.onclick = () => go(b.dataset.g));
     $('#onlineBtn').onclick = () => {
-      S.guard.online = !S.guard.online;
       if (S.guard.online) {
-        toast('已上线，正在为您匹配求助单', 'i-check');
+        /* 暂停守护：结算本轮在线时长 */
+        S.guard.online = false;
+        const elapsed = S.guard.onlineSince ? Date.now() - S.guard.onlineSince : 0;
+        S.guard.onlineSince = null;
+        clearTimers();
         render('guard');
+        showOnlineSummary(elapsed);
+      } else {
+        /* 开启在线守护：开始计时 */
+        S.guard.online = true;
+        S.guard.onlineSince = Date.now();
+        toast('已上线，正在为您匹配守护请求', 'i-check');
+        render('guard');
+        startOnlineTimer();
         /* 在线 8 秒后自动来单（演示） */
         tick(() => { if (S.guard.online) showIncomingOrder(); }, 8000);
-      } else { render('guard'); toast('已暂停接单'); }
+      }
     };
     const demo = $('#demoOrder');
     if (demo) demo.onclick = showIncomingOrder;
   }
 };
 
-/* 派单弹窗 */
+/* 在线守护计时 */
+function fmtDuration(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  return (h > 0 ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
+}
+
+function startOnlineTimer() {
+  const update = () => {
+    const el = $('#onlineTimer');
+    if (!el || !S.guard.online) return;
+    const sec = Math.floor((Date.now() - (S.guard.onlineSince || Date.now())) / 1000);
+    el.textContent = '已在线 ' + fmtDuration(sec);
+  };
+  update();
+  every(update, 1000);
+}
+
+function showOnlineSummary(elapsed) {
+  const dur = fmtDuration(Math.floor(elapsed / 1000));
+  const m = openModal(`
+    <div class="dialog">
+      <div class="d-icon" style="background:var(--green-l);color:var(--green)">${ic('i-clock')}</div>
+      <h3>本轮守护已结束</h3>
+      <div class="d-sub" style="text-align:center">本轮在线守护时长<br><b style="color:var(--green);font-size:var(--fs-xl)">${dur}</b><br>感谢您的守护，让更多人远离诈骗</div>
+      <div class="d-btns"><button class="btn btn-primary" data-ok>知道了</button></div>
+    </div>`);
+  m.querySelector('[data-ok]').onclick = () => closeModal(m);
+}
+
+/* 守护请求弹窗（极简：有人需要帮助 + 是否提供帮助） */
 function showIncomingOrder() {
-  const type = FRAUD_TYPES[Math.floor(Math.random() * 3)];
-  let sec = 30;
   const m = openModal(`
     <div class="order-pop">
-      <div class="op-head">${ic('i-alert')}<b>紧急求助单</b><span class="op-count" id="opCount">30s</span></div>
-      <div class="op-body">
-        <div class="op-row"><span class="op-label">诈骗类型</span><b>${type.name}</b><span class="tag-mini tag-red" style="margin-left:auto">高发</span></div>
-        <div class="op-row"><span class="op-label">求助者</span><b>王女士 · 62 岁</b></div>
-        <div class="op-row"><span class="op-label">情况摘要</span><span style="line-height:1.6">接到"快递理赔"电话，对方正引导下载软件，本人不确定真假</span></div>
-        <div class="op-row"><span class="op-label">标签匹配</span><b style="color:var(--green)">100% 匹配您的能力标签</b></div>
-        <div class="d-btns" style="margin-top:14px">
-          <button class="btn btn-plain" data-rej>暂不方便</button>
-          <button class="btn btn-green" data-acc>${ic('i-video')}立即接听</button>
+      <div class="op-simple">
+        <div class="op-simple-icon">${ic('i-radar')}</div>
+        <h3>有人需要帮助</h3>
+        <p>有求助者正在发起求助<br>等待守护者响应</p>
+        <div class="op-simple-actions">
+          <button class="btn btn-green btn-lg btn-block" data-acc>${ic('i-video')}为Ta提供守护</button>
+          <button class="op-rej" data-rej>暂时不方便提供守护</button>
         </div>
       </div>
     </div>`);
   m.dataset.lock = '1';
-  const iv = every(() => {
-    sec--;
-    const el = m.querySelector('#opCount');
-    if (el) el.textContent = sec + 's';
-    if (sec <= 0) { clearTimers(); closeModal(m); toast('30 秒未响应，订单已顺延'); }
-  }, 1000);
-  m.querySelector('[data-rej]').onclick = () => { clearTimers(); closeModal(m); toast('已婉拒，系统将顺延派单'); };
+  m.querySelector('[data-rej]').onclick = () => { closeModal(m); toast('已婉拒本次守护请求'); };
   m.querySelector('[data-acc]').onclick = () => {
-    clearTimers(); closeModal(m);
+    closeModal(m);
     S.helpType = FRAUD_TYPES.find(t => t.name === '冒充客服退款类').id;
     go('call', { as: 'guard' });
   };
@@ -1143,183 +1321,54 @@ SCREENS.level = {
   mount() { bindBack(app); }
 };
 
-/* ============ 15. 信用中心 ============ */
-SCREENS.credit = {
+/* ============ 16. 守护勋章 · 答题挑战 ============ */
+SCREENS['badge-game'] = {
   html() {
     const g = S.guard;
-    const grade = CREDIT_GRADES.find(c => g.credit >= c.min && g.credit <= c.max);
-    const C = 2 * Math.PI * 80;
-    const off = C * (1 - g.credit / 100);
-    const qualityScore = 54; /* 质量分 60 满分 */
-    const behaviorScore = 28; /* 行为分 40 满分 */
+    const earned = (g.badges || []).filter(b => b.earned);
+    const locked = (g.badges || []).filter(b => !b.earned);
     return `
     <div class="screen">
-      ${navbar('信用中心', { cls: 'transparent on-dark' })}
-      <div class="credit-hero" style="padding-top:56px">
-        <div class="credit-score-wrap">
-          <svg width="180" height="180">
-            <defs><linearGradient id="creditGrad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#7FB5EE"/><stop offset="1" stop-color="#F2C14E"/>
-            </linearGradient></defs>
-            <circle cx="90" cy="90" r="80" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="12"/>
-            <circle class="cs-fg" cx="90" cy="90" r="80" fill="none" stroke-width="12"
-              stroke-dasharray="${C}" stroke-dashoffset="${off}"/>
-          </svg>
-          <div class="credit-center"><b>${g.credit}</b><span>满分 100 · 近90天行为</span></div>
-        </div>
-        <div class="credit-grade"><span class="cg-letter">${grade.g}</span>${grade.name} · 派单权重 ${grade.weight}</div>
+      ${navbar('守护勋章')}
+      <div style="background:linear-gradient(160deg,#B8860B,#D9A93C);padding:20px 18px 24px;color:#fff;text-align:center;flex:none">
+        <div style="font-size:var(--fs-2xl);font-weight:800">${earned.length} <span style="font-size:var(--fs-md);opacity:.8">/ ${g.badges.length} 枚勋章</span></div>
+        <p style="font-size:var(--fs-sm);opacity:.85;margin-top:6px;line-height:1.6">答题闯关，赢取专属守护勋章<br>每枚勋章对应一类诈骗知识</p>
       </div>
-      <div class="credit-card credit-dims">
-        <div style="font-weight:700;margin-bottom:14px">信用分构成（双维模型）</div>
-        <div class="cd-row">
-          <div class="cd-label">服务质量（满分 60）<b>${qualityScore} 分</b></div>
-          <div class="pbar"><i style="width:${qualityScore / 60 * 100}%"></i></div>
-        </div>
-        <div class="cd-row">
-          <div class="cd-label">行为合规（满分 40）<b>${behaviorScore} 分</b></div>
-          <div class="pbar green"><i style="width:${behaviorScore / 40 * 100}%"></i></div>
-        </div>
-      </div>
-      <div class="sec-title">等级与派单权益</div>
-      <div style="margin:0 16px" class="card">
-        ${CREDIT_GRADES.map(c => `
-          <div class="list-item" style="padding:12px 16px">
-            <span class="cg-letter" style="width:30px;height:30px;border-radius:50%;background:${c.color};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;flex:none">${c.g}</span>
-            <div class="li-body">
-              <div class="li-title" style="font-size:var(--fs-md)">${c.name}<span style="color:var(--ink-4);font-weight:400;font-size:var(--fs-sm)">　${c.min}-${c.max} 分 · ${c.weight}</span></div>
-              <div class="li-sub">${c.benefit}</div>
+      <div class="sec-title">${ic('i-star')} <span style="color:var(--gold)">已获得勋章</span></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0 16px 4px">
+        ${earned.map(b => `
+          <button class="badge-card" data-badge="${b.id}" style="background:var(--card);border-radius:var(--r-md);padding:16px 8px;text-align:center;box-shadow:var(--sh-sm);transition:var(--tr)">
+            <div style="width:52px;height:52px;border-radius:50%;background:${b.color}1A;display:flex;align-items:center;justify-content:center;margin:0 auto 8px">
+              <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,${b.color},${b.color}CC);display:flex;align-items:center;justify-content:center;color:#fff">${ic(b.icon)}</div>
             </div>
-          </div>`).join('')}
+            <div style="font-size:var(--fs-sm);font-weight:600;color:var(--ink)">${b.name}</div>
+            <div style="font-size:10px;color:var(--ink-4);margin-top:3px">${b.time}</div>
+          </button>`).join('')}
+        ${earned.length === 0 ? '<div class="empty" style="grid-column:1/-1"><p>暂无勋章，快去答题挑战吧！</p></div>' : ''}
       </div>
-      <div class="sec-title">近期信用变动</div>
-      <div style="margin:0 16px 20px" class="card">
-        ${CREDIT_RECORDS.map(r => `
-          <button class="credit-record" data-credit-record="${r.id}" style="width:100%">
-            <span class="cr-sign ${r.sign === '+' ? 'cr-plus' : 'cr-minus'}">${r.sign}${r.num}</span>
-            <div style="flex:1;text-align:left"><div style="font-size:var(--fs-md);font-weight:600">${r.reason}</div><div style="font-size:var(--fs-xs);color:var(--ink-4);margin-top:3px">${r.time}</div></div>
-            ${r.appealable && !r.appealed ? '<span class="tag-mini tag-red">可申诉</span>' : ''}
-            ${ic('i-right', 'credit-arrow')}
+      <div class="sec-title">${ic('i-lock')} <span style="color:var(--ink-4)">待挑战勋章</span></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0 16px 12px">
+        ${locked.map(b => `
+          <button class="badge-card" data-challenge="${b.id}" style="background:var(--card);border-radius:var(--r-md);padding:16px 8px;text-align:center;box-shadow:var(--sh-sm);transition:var(--tr)">
+            <div style="width:52px;height:52px;border-radius:50%;background:${b.color}14;display:flex;align-items:center;justify-content:center;margin:0 auto 8px">
+              <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,${b.color}4D,${b.color}26);display:flex;align-items:center;justify-content:center;color:${b.color}">${ic(b.icon)}</div>
+            </div>
+            <div style="font-size:var(--fs-sm);font-weight:600;color:var(--ink)">${b.name}</div>
+            <div style="font-size:10px;color:var(--blue);margin-top:3px">答题解锁</div>
           </button>`).join('')}
       </div>
+      <div class="proto-note" style="margin:0 16px 20px">每枚勋章需完成对应诈骗类型的答题挑战（答对 80% 以上）方可解锁。勋章挑战自愿参与，不影响守护者正常守护。</div>
     </div>`;
   },
   mount() {
     bindBack(app);
-    /* 点击信用变动记录进入详情 */
-    app.querySelectorAll('[data-credit-record]').forEach(b => b.onclick = () => go('credit-record-detail', { id: b.dataset.creditRecord }));
-  }
-};
-
-/* ============ 15b. 信用变动详情 ============ */
-SCREENS['credit-record-detail'] = {
-  html(p) {
-    const r = CREDIT_RECORDS.find(x => x.id === p.id) || {};
-    const isDeduct = r.sign === '-';
-    const h = r.guard || {};
-    return `
-    <div class="screen">
-      ${navbar('信用变动详情')}
-
-      <div style="text-align:center;padding:20px 20px 8px">
-        <div class="cr-sign-big" style="color:${isDeduct ? 'var(--red)' : 'var(--green)'}">${r.sign}${r.num}</div>
-        <div style="font-size:var(--fs-md);font-weight:600;margin-top:6px">${r.reason}</div>
-        <div style="font-size:var(--fs-sm);color:var(--ink-4);margin-top:4px">${r.time}</div>
-      </div>
-
-      <div class="sec-title">守护信息</div>
-      <div style="margin:0 16px" class="card">
-        <div class="list-item" style="padding:12px 16px">
-          <div class="li-icon" style="background:var(--blue-l);color:var(--blue)">${ic('i-shield')}</div>
-          <div class="li-body"><div class="li-title">诈骗类型</div><div class="li-sub">${h.type || '-'}</div></div>
-        </div>
-        <div class="list-item" style="padding:12px 16px">
-          <div class="li-icon" style="background:var(--green-l);color:var(--green)">${ic('i-user')}</div>
-          <div class="li-body"><div class="li-title">求助者</div><div class="li-sub">${h.requester || '-'}</div></div>
-        </div>
-        <div class="list-item" style="padding:12px 16px">
-          <div class="li-icon" style="background:var(--orange-l);color:var(--orange-d)">${ic('i-video')}</div>
-          <div class="li-body"><div class="li-title">通话时长</div><div class="li-sub">${h.duration || '-'}</div></div>
-        </div>
-        <div class="list-item" style="padding:12px 16px">
-          <div class="li-icon" style="background:var(--gold-l);color:var(--gold)">${ic('i-star')}</div>
-          <div class="li-body"><div class="li-title">服务评分</div><div class="li-sub">${h.star ? h.star + ' 星' : '未评价'}</div></div>
-        </div>
-      </div>
-
-      <div class="sec-title">变动说明</div>
-      <div style="margin:0 16px 14px;padding:14px 16px" class="card">
-        <div style="font-size:var(--fs-sm);color:var(--ink-2);line-height:1.8">${r.detail || '-'}</div>
-      </div>
-
-      ${isDeduct && r.appealable ? `
-      <div class="bottom-cta" style="padding-bottom:20px">
-        <button class="btn btn-primary btn-lg btn-block" id="appealBtn">${ic('i-edit')} 申请信用扣分申诉</button>
-      </div>` : ''}
-    </div>`;
-  },
-  mount(p) {
-    bindBack(app);
-    const r = CREDIT_RECORDS.find(x => x.id === p.id) || {};
-    if (r.sign === '-' && r.appealable) {
-      $('#appealBtn').onclick = () => {
-        const m = openModal(`
-          <div class="sheet-panel">
-            <div class="sheet-handle"></div>
-            <h3 style="margin-bottom:6px">信用扣分申诉</h3>
-            <p style="font-size:var(--fs-sm);color:var(--ink-3);margin-bottom:16px">扣分原因：${r.reason}<br>扣分时间：${r.time}<br>扣分分值：-${r.num}</p>
-            <div class="form-field" style="margin:0 0 12px"><label>申诉理由</label><textarea class="input" id="apReason" placeholder="请描述您的申诉理由，例如：当时正在处理紧急工单、系统网络异常等"></textarea></div>
-            <div class="form-field" style="margin:0 0 18px"><label>证据截图（选填）</label><button class="btn btn-ghost btn-block" data-up>${ic('i-plus')}上传截图/凭证</button></div>
-            <button class="btn btn-primary btn-lg btn-block" data-sub>提交申诉</button>
-          </div>`, true);
-        m.querySelector('[data-up]').onclick = () => toast('原型演示：图片上传占位');
-        m.querySelector('[data-sub]').onclick = () => {
-          if (!m.querySelector('#apReason').value.trim()) return toast('请填写申诉理由', 'i-alert');
-          r.appealed = true;
-          closeModal(m);
-          toast('申诉已提交，3 个工作日内反馈结果', 'i-check');
-          tick(() => back(), 800);
-        };
-      };
-    }
-  }
-};
-
-/* ============ 16. 能力标签管理 ============ */
-SCREENS['tags-manage'] = {
-  html() {
-    const g = S.guard;
-    const rest = FRAUD_TYPES.filter(t => !g.tags.includes(t.name));
-    return `
-    <div class="screen">
-      ${navbar('能力标签')}
-      <div class="sec-title">已持有标签（${g.tags.length}）</div>
-      <div style="margin:0 16px" class="card">
-        ${g.tags.map(name => {
-          const t = FRAUD_TYPES.find(x => x.name === name);
-          return `<div class="list-item">
-            <div class="li-icon" style="background:${t.color}1A;color:${t.color}">${ic(t.icon)}</div>
-            <div class="li-body"><div class="li-title">${name}</div><div class="li-sub">测评已通过 · 永久有效</div></div>
-            <span class="tag-mini tag-green">派单中</span>
-          </div>`;
-        }).join('')}
-      </div>
-      <div class="sec-title">添加新标签</div>
-      <p style="margin:0 20px 10px;font-size:var(--fs-sm);color:var(--ink-3);line-height:1.7">每添加 1 个标签需通过 5 道题测评（正确率 ≥80%），标签越多可匹配的求助场景越广。</p>
-      <div style="margin:0 16px 20px" class="card">
-        ${rest.map(t => `
-          <div class="list-item">
-            <div class="li-icon" style="background:${t.color}1A;color:${t.color}">${ic(t.icon)}</div>
-            <div class="li-body"><div class="li-title">${t.name}</div><div class="li-sub">${t.desc}</div></div>
-            <button class="btn btn-sm btn-ghost" data-add="${t.name}">去测评</button>
-          </div>`).join('') || '<div class="empty"><p>已持有全部标签</p></div>'}
-      </div>
-    </div>`;
-  },
-  mount() {
-    bindBack(app);
-    app.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
-      S.pendingTags = [b.dataset.add];
-      confirmDlg('开始标签测评', `将对「${b.dataset.add}」进行 5 道题测评<br>正确率达到 80% 即可生效`, '开始测评', () => startQuiz('addTag'));
+    app.querySelectorAll('[data-badge]').forEach(b => b.onclick = () => {
+      const badge = S.guard.badges.find(x => x.id === b.dataset.badge);
+      if (badge) toast(`${badge.name}：${badge.desc}`, badge.icon);
+    });
+    app.querySelectorAll('[data-challenge]').forEach(b => b.onclick = () => {
+      const badge = S.guard.badges.find(x => x.id === b.dataset.challenge);
+      if (badge) startBadgeChallenge(badge);
     });
   }
 };
@@ -1329,43 +1378,81 @@ SCREENS.mall = {
   tab: 'mall',
   html() {
     const pts = S.role === 'guardian' ? S.guard.points : S.seeker.points;
-    const cats = ['全部', '实物', '虚拟', '热门'];
-    const list = PRODUCTS.filter(p =>
-      S.mallCat === '全部' ? true : S.mallCat === '热门' ? p.hot : p.cat === S.mallCat);
     return `
     <div class="screen has-tab">
       <div class="mall-hero">
-        <div class="mall-points">
-          <div class="mp-icon">${ic('i-coin')}</div>
-          <div><span>我的积分</span><br><b>${fmt(pts)}</b></div>
-          <button class="btn btn-sm" id="toOrders">兑换订单</button>
+        <div class="mall-head">
+          <div class="mall-pts">
+            <span class="mp-label">可用积分</span>
+            <div class="mp-num">${fmt(pts)}<span class="mp-star">${ic('i-star')}</span></div>
+          </div>
+          <button class="btn-ghost-light" id="howEarn">${ic('i-help')}如何获取积分？</button>
         </div>
-      </div>
-      <div class="mall-cats">
-        ${cats.map(c => `<button class="chip ${S.mallCat === c ? 'on' : ''}" data-cat="${c}">${c}</button>`).join('')}
+        <button class="mall-orders" id="toOrders">${ic('i-gift')}兑换订单${ic('i-right')}</button>
       </div>
       <div class="prod-grid">
-        ${list.map(p => `
-          <button class="prod-card" data-prod="${p.id}">
-            <div class="prod-img" style="background:linear-gradient(145deg,${p.color}EE,${p.color}AA)">
-              ${ic(p.icon)}
-              <span class="p-stock">${p.stock > 0 ? '库存 ' + p.stock : '已售罄'}</span>
-              ${p.hot ? '<span class="p-hot-tag">HOT</span>' : ''}
+        ${PRODUCTS.map(p => {
+          const enough = pts >= p.points;
+          const soldOut = p.stock <= 0;
+          const sp = p.sponsor;
+          return `
+          <div class="prod-card ${sp ? 'sponsored' : ''}" data-prod="${p.id}" ${sp ? `style="border-color:${sp.color}"` : ''}>
+            ${sp ? `<span class="sp-corner" style="background:${sp.color}">赞助</span>` : ''}
+            <div class="prod-img">
+              <img src="${p.img}" alt="${p.name}">
+              ${sp ? `<span class="p-brand"><span class="pb-logo" style="background:${sp.color}">${sp.logo ? `<img src="${sp.logo}" alt="">` : sp.name[0]}</span><span class="pb-txt"><b>${sp.name}</b><i>${sp.sub}</i></span></span>` : ''}
+              ${soldOut ? '<span class="p-soldout">已售罄</span>' : ''}
             </div>
             <div class="prod-body">
               <div class="prod-name">${p.name}</div>
-              <div class="prod-price">${ic('i-coin')}${fmt(p.points)}</div>
+              <div class="prod-desc">${p.desc}</div>
+              <div class="prod-foot">
+                <div class="prod-price">
+                  <b>${fmt(p.points)}</b><span>积分</span>
+                  <s>原价: ¥${p.price}</s>
+                </div>
+                <button class="prod-buy ${soldOut || !enough ? 'off' : ''}" data-buy="${p.id}">${soldOut ? '已售罄' : enough ? '兑换' : '积分不足'}</button>
+              </div>
             </div>
-          </button>`).join('')}
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
   },
   mount() {
     $('#toOrders').onclick = () => go('orders');
-    app.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => { S.mallCat = b.dataset.cat; render('mall'); });
+    $('#howEarn').onclick = showHowEarn;
     app.querySelectorAll('[data-prod]').forEach(b => b.onclick = () => { curProduct = PRODUCTS.find(p => p.id === b.dataset.prod); go('product'); });
+    /* 卡片内直接兑换 */
+    app.querySelectorAll('[data-buy]').forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      const p = PRODUCTS.find(x => x.id === b.dataset.buy);
+      const pts = S.role === 'guardian' ? S.guard.points : S.seeker.points;
+      if (p.stock <= 0) return toast('该商品已售罄', 'i-alert');
+      if (pts < p.points) return toast(`积分不足，还差 ${fmt(p.points - pts)} 积分`, 'i-alert');
+      if (p.cat === '实物') showAddrSheet(p);
+      else confirmExchange(p, null);
+    });
   }
 };
+
+/* 如何获取积分弹窗 */
+function showHowEarn() {
+  const m = openModal(`
+    <div class="dialog">
+      <div class="d-icon" style="background:var(--gold-l);color:var(--gold)">${ic('i-star')}</div>
+      <h3>如何获取积分？</h3>
+      <div class="earn-list">
+        <div class="earn-row"><span>成功接听求助视频</span><b>+10 积分/次</b></div>
+        <div class="earn-row"><span>获得求助者好评（4-5 星）</span><b>+5 积分/次</b></div>
+        <div class="earn-row"><span>连续在线守护（每日 ≥2 小时）</span><b>+20 积分/天</b></div>
+        <div class="earn-row"><span>完成勋章挑战（首次通过）</span><b>+100 积分/次</b></div>
+        <div class="earn-row"><span>信用等级提升</span><b>+200 积分/次</b></div>
+      </div>
+      <div class="d-btns"><button class="btn btn-primary" data-ok>知道了</button></div>
+    </div>`);
+  m.querySelector('[data-ok]').onclick = () => closeModal(m);
+}
 
 /* ============ 18. 商品详情 & 兑换 ============ */
 SCREENS.product = {
@@ -1373,12 +1460,12 @@ SCREENS.product = {
     const p = curProduct;
     const pts = S.role === 'guardian' ? S.guard.points : S.seeker.points;
     const enough = pts >= p.points;
+    const sp = p.sponsor;
     return `
     <div class="screen">
-      ${navbar('', { cls: 'transparent on-dark' })}
-      <div class="detail-gallery" style="background:linear-gradient(145deg,${p.color}DD,${p.color}99)">
-        ${ic(p.icon)}
-        ${p.hot ? '<span class="detail-hot-tag">热门推荐</span>' : ''}
+      ${navbar('', { cls: 'transparent' })}
+      <div class="detail-gallery">
+        <img src="${p.img}" alt="${p.name}">
       </div>
       <div class="detail-body">
         <div style="display:flex;gap:8px;align-items:center">
@@ -1393,6 +1480,21 @@ SCREENS.product = {
         </div>
         <div style="font-size:var(--fs-sm);color:var(--ink-3)">库存 ${p.stock} 件 · 每人每月限兑 2 件</div>
       </div>
+      ${sp ? `
+      <div class="sponsor-panel" style="border-left-color:${sp.color}">
+        <div class="sp-head">
+          <span class="sp-logo" style="background:${sp.color}">${sp.logo ? `<img src="${sp.logo}" alt="">` : sp.name[0]}</span>
+          <div class="sp-info">
+            <div class="sp-name">${sp.name}<span class="sp-shops">${sp.douyin ? `<button class="sp-shop" data-shop="douyin" data-url="${sp.douyin}" title="抖音商铺">${ic('i-douyin')}</button>` : ''}${sp.kuaishou ? `<button class="sp-shop" data-shop="kuaishou" data-url="${sp.kuaishou}" title="快手商铺">${ic('i-kuaishou')}</button>` : ''}</span></div>
+            <div class="sp-sub">${sp.sub}</div>
+          </div>
+          <span class="sp-badge" style="background:${sp.color}">赞助</span>
+        </div>
+        ${sp.address ? `<div class="sp-addr">${ic('i-loc')}<span>${sp.address}</span></div>` : ''}
+        ${sp.intro ? `<p class="sp-intro">${sp.intro}</p>` : ''}
+        ${sp.phone ? `<button class="sp-phone" data-call="${sp.phone}">${ic('i-phone')}<span>联系商家 · ${sp.phone}</span></button>` : ''}
+      </div>
+      ` : ''}
       <div class="detail-tabs">
         <button class="dtab on" data-tab="desc">商品介绍</button>
         <button class="dtab" data-tab="rule">兑换规则</button>
@@ -1412,6 +1514,13 @@ SCREENS.product = {
   mount() {
     bindBack(app);
     const p = curProduct;
+    /* 联系赞助商家 */
+    app.querySelectorAll('[data-call]').forEach(b => b.onclick = () => toast(`即将拨打商家电话 ${b.dataset.call}`, 'i-phone'));
+    /* 跳转赞助商铺（抖音/快手） */
+    app.querySelectorAll('[data-shop]').forEach(b => b.onclick = () => {
+      const name = b.dataset.shop === 'douyin' ? '抖音' : '快手';
+      toast(`即将跳转到${name}商铺（原型演示）`, 'i-check');
+    });
     /* Tab switching */
     app.querySelectorAll('.dtab').forEach(t => t.onclick = () => {
       app.querySelectorAll('.dtab').forEach(x => x.classList.remove('on'));
@@ -1711,139 +1820,6 @@ SCREENS['msg-detail'] = {
   }
 };
 
-/* ============ 21c. 反诈资讯列表 ============ */
-const NEWS_PAGE_SIZE = 5;
-SCREENS['news-list'] = {
-  html() {
-    S.newsPage = 1; S.newsLoading = false; S.newsNoMore = NEWS.length <= NEWS_PAGE_SIZE;
-    const list = NEWS.slice(0, NEWS_PAGE_SIZE);
-    return `
-    <div class="screen" id="newsListScreen">
-      ${navbar('反诈资讯', { right: `<button class="nb-act" id="newsRefresh" style="width:auto;padding:0 8px;color:var(--blue)">${ic('i-refresh')}</button>` })}
-      <div id="newsPullTip" class="pull-tip">${ic('i-refresh')}<span>下拉刷新</span></div>
-      <div class="news-list" id="newsListBody">
-        ${list.map(n => newsItemHtml(n)).join('')}
-      </div>
-      <div id="newsFoot" class="list-foot">${S.newsNoMore ? '没有更多资讯了' : '<span class="lf-spin"></span>加载中…'}</div>
-    </div>`;
-  },
-  mount() {
-    bindBack(app);
-    const scr = $('#newsListScreen');
-    const tip = $('#newsPullTip');
-    let touchY = 0, pulling = false, pullDist = 0;
-
-    /* 下拉刷新 — touch 事件实现 */
-    scr.addEventListener('touchstart', e => {
-      touchY = e.touches[0].clientY;
-      pulling = scr.scrollTop <= 0;
-    }, { passive: true });
-    scr.addEventListener('touchmove', e => {
-      if (!pulling || newsPulling || S.newsLoading) return;
-      pullDist = Math.min(e.touches[0].clientY - touchY, 80);
-      if (pullDist > 0) {
-        tip.style.transform = `translateY(${pullDist}px)`;
-        tip.style.opacity = Math.min(pullDist / 60, 1);
-        tip.querySelector('span').textContent = pullDist >= 55 ? '释放刷新' : '下拉刷新';
-      }
-    }, { passive: true });
-    scr.addEventListener('touchend', () => {
-      if (pulling && pullDist >= 55 && !newsPulling && !S.newsLoading) {
-        doRefreshNews();
-      } else {
-        tip.style.transform = '';
-        tip.style.opacity = '';
-      }
-      pulling = false; pullDist = 0;
-    });
-
-    /* 上拉加载 */
-    scr.addEventListener('scroll', () => {
-      if (!S.newsLoading && !S.newsNoMore) {
-        const max = scr.scrollHeight - scr.clientHeight;
-        if (scr.scrollTop >= max - 80) loadMoreNews();
-      }
-    });
-
-    bindNewsItemClicks();
-    $('#newsRefresh').onclick = () => { if (!newsPulling && !S.newsLoading) doRefreshNews(); };
-  }
-};
-
-function newsItemHtml(n) {
-  return `
-  <button class="news-item" data-news="${n.id}">
-    <div class="news-cover" style="background:${n.color}">${ic(n.icon)}</div>
-    <div class="news-body">
-      <div class="news-title">${n.title}</div>
-      <div class="news-meta">${n.meta}</div>
-    </div>
-    ${ic('i-right', 'news-arrow')}
-  </button>`;
-}
-
-function bindNewsItemClicks() {
-  app.querySelectorAll('[data-news]').forEach(b => b.onclick = () => go('news-detail', { id: b.dataset.news }));
-}
-
-function doRefreshNews() {
-  S.newsLoading = true;
-  const tip = $('#newsPullTip');
-  if (tip) { newsPulling = true; tip.querySelector('span').textContent = '刷新中…'; }
-  tick(() => {
-    S.newsPage = 1; S.newsNoMore = NEWS.length <= NEWS_PAGE_SIZE;
-    const list = NEWS.slice(0, NEWS_PAGE_SIZE);
-    const body = $('#newsListBody');
-    if (body) body.innerHTML = list.map(n => newsItemHtml(n)).join('');
-    const foot = $('#newsFoot');
-    if (foot) foot.innerHTML = S.newsNoMore ? '没有更多资讯了' : '<span class="lf-spin"></span>加载中…';
-    S.newsLoading = false; newsPulling = false;
-    if (tip) { tip.style.transform = ''; tip.style.opacity = ''; }
-    bindNewsItemClicks();
-    toast('已刷新', 'i-check');
-  }, 800);
-}
-
-function loadMoreNews() {
-  S.newsLoading = true;
-  const foot = $('#newsFoot');
-  if (foot) foot.innerHTML = '<span class="lf-spin"></span>加载中…';
-  tick(() => {
-    S.newsPage++;
-    const start = (S.newsPage - 1) * NEWS_PAGE_SIZE;
-    const batch = NEWS.slice(start, start + NEWS_PAGE_SIZE);
-    if (batch.length < NEWS_PAGE_SIZE) S.newsNoMore = true;
-    const body = $('#newsListBody');
-    if (body) body.insertAdjacentHTML('beforeend', batch.map(n => newsItemHtml(n)).join(''));
-    if (foot) foot.innerHTML = S.newsNoMore ? '没有更多资讯了' : '<span class="lf-spin"></span>上拉加载更多';
-    S.newsLoading = false;
-    bindNewsItemClicks();
-  }, 600);
-}
-
-/* ============ 21d. 反诈资讯详情 ============ */
-SCREENS['news-detail'] = {
-  html(p) {
-    const n = NEWS.find(x => x.id === p.id) || {};
-    return `
-    <div class="screen">
-      ${navbar('资讯详情')}
-      <div class="news-detail">
-        <div class="nd-cover" style="background:${n.color}">${ic(n.icon || 'i-doc')}</div>
-        <h1 class="nd-title">${n.title}</h1>
-        <div class="nd-meta">
-          <span class="nd-source">${n.source || ''}</span>
-          <span class="nd-dot">·</span>
-          <span>${n.date || ''}</span>
-        </div>
-        <div class="nd-summary">${n.summary || ''}</div>
-        <div class="nd-body">${(n.content || '').split('\n').map(l => l.trim() ? `<p>${l}</p>` : '').join('')}</div>
-      </div>
-    </div>`;
-  },
-  mount() { bindBack(app); }
-};
-
 /* ============ 22. 求助/守护记录 ============ */
 SCREENS.records = {
   html() {
@@ -1854,25 +1830,43 @@ SCREENS.records = {
       <div style="flex:1;padding-bottom:20px">
         ${S.records.map(r => {
           const lvName = LEVELS[r.lv - 1] ? `${r.lv}级${LEVELS[r.lv - 1].name}` : `L${r.lv}`;
+          const isPending = r.status === 'pending';
           const tagCls = r.star >= 4 ? 'tag-green' : 'tag-red';
           return `
-          <div class="record-item">
-            <div class="ri-top">${ic('i-shield')}<b>${r.type}</b><time>${r.time}</time></div>
+          <div class="record-item ${isPending ? 'is-pending' : ''}">
+            <div class="ri-top">
+              <span class="ri-status ${isPending ? 'pending' : 'done'}">${isPending ? '待评价' : '已完成'}</span>
+              <time>${r.time}</time>
+            </div>
             <div class="ri-rows">
               ${isGuard ? `求助者：<b>${r.seeker}</b>　通话时长：<b>${r.dur}</b>` : `守护者：<b>${r.guardName}</b>　等级：<b>${lvName}</b>　通话时长：<b>${r.dur}</b>`}
             </div>
-            <div class="ri-stars">
-              ${[1, 2, 3, 4, 5].map(i => ic('i-star', i <= r.star ? '' : 'off')).join('')}
-              <span style="font-size:var(--fs-sm);color:var(--ink-3);margin-left:6px">${r.star}.0 分</span>
-            </div>
-            ${r.tags && r.tags.length ? `<div class="ri-tags">${r.tags.map(t => `<span class="tag-mini ${tagCls}">${t}</span>`).join('')}</div>` : ''}
-            ${r.feedback ? `<div class="ri-feedback">${ic('i-msg')}<span>${r.feedback}</span></div>` : ''}
+            ${isPending ? `
+              <div class="ri-pending">
+                <span>${isGuard ? '等待对方评价' : '本次服务待评价'}</span>
+                ${!isGuard ? `<button class="btn btn-sm btn-primary" data-rate="${r.id}">去评价</button>` : ''}
+              </div>
+            ` : `
+              <div class="ri-stars">
+                ${[1, 2, 3, 4, 5].map(i => ic('i-star', i <= r.star ? '' : 'off')).join('')}
+                <span style="font-size:var(--fs-sm);color:var(--ink-3);margin-left:6px">${r.star}.0 分</span>
+              </div>
+              ${r.tags && r.tags.length ? `<div class="ri-tags">${r.tags.map(t => `<span class="tag-mini ${tagCls}">${t}</span>`).join('')}</div>` : ''}
+              ${r.feedback ? `<div class="ri-feedback">${ic('i-msg')}<span>${r.feedback}</span></div>` : ''}
+            `}
           </div>`;
         }).join('')}
+        ${S.records.length === 0 ? '<div class="empty"><p>暂无记录</p></div>' : ''}
       </div>
     </div>`;
   },
-  mount() { bindBack(app); }
+  mount() {
+    bindBack(app);
+    app.querySelectorAll('[data-rate]').forEach(b => b.onclick = () => {
+      curRateId = b.dataset.rate;
+      go('rate');
+    });
+  }
 };
 
 /* ============ 23. 我的 ============ */
@@ -1882,18 +1876,16 @@ SCREENS.profile = {
     const isGuard = S.role === 'guardian';
     const g = S.guard;
     const lv = LEVELS[g.level - 1];
-    const grade = CREDIT_GRADES.find(c => g.credit >= c.min && g.credit <= c.max);
+    const earnedBadges = (g.badges || []).filter(b => b.earned);
     const menu = [
       ...(isGuard ? [
-        ['credit', 'i-credit', '#185FA5', '信用中心', `${g.credit} 分 · ${grade.g} 级`],
         ['level', 'i-medal', '#B8860B', '我的等级', `L${g.level} ${lv.name}`],
-        ['tags-manage', 'i-tag', '#0F6E56', '能力标签', `${g.tags.length} 个已认证`],
+        ['badge-game', 'i-medal', '#0F6E56', '守护勋章', '答题赢勋章'],
         ['orders', 'i-gift', '#B4610E', '兑换订单', ''],
         ['address', 'i-loc', '#D6336C', '收货地址', ''],
       ] : []),
       ['records', 'i-doc', '#0B7285', isGuard ? '守护记录' : '求助记录', `${S.records.length} 条记录`],
-      ['report-clue', 'i-megaphone', '#854F0B', '举报诈骗线索', '提供线索，协助反诈'],
-      ['account-security', 'i-lock', '#5A6B84', '账号与安全', '换绑手机 · 解绑第三方'],
+      ['account-security', 'i-lock', '#5A6B84', '账号与安全', '解绑第三方 · 注销账号'],
       ['service', 'i-headset', '#5A6B84', '客服中心', '96110 · 客服热线 · 投诉建议'],
       ['switch-role', 'i-refresh', '#6C5CE7', '切换身份', isGuard ? '当前：守护者' : '当前：求助者'],
       ['about', 'i-info', '#5A6B84', '关于我们', ''],
@@ -1903,11 +1895,14 @@ SCREENS.profile = {
       <div class="me-hero">
         <div class="me-top">
           <div class="me-avatar">${ic(isGuard ? 'i-shield' : 'i-user')}</div>
-          <div>
-            <h2>${isGuard ? g.name : S.seeker.name}</h2>
+          <div style="flex:1;min-width:0">
+            <div class="me-name-row">
+              <h2>${isGuard ? g.name : S.seeker.name}</h2>
+              ${isGuard && earnedBadges.length ? `<div class="me-earned-badges">${earnedBadges.slice(0, 4).map(b => `<span class="me-badge-chip" style="background:${b.color}" title="${b.name}">${ic(b.icon)}</span>`).join('')}${earnedBadges.length > 4 ? `<span class="me-badge-more">+${earnedBadges.length - 4}</span>` : ''}</div>` : ''}
+            </div>
             <div class="me-badges">
               ${isGuard
-                ? `<span class="tag-mini">L${g.level} ${lv.name}</span><span class="tag-mini">信用 ${grade.g}</span><span class="tag-mini">已实名认证</span>`
+                ? `<span class="tag-mini">L${g.level} ${lv.name}</span><span class="tag-mini">已实名认证</span>`
                 : '<span class="tag-mini">求助者</span><span class="tag-mini">已登录</span>'}
             </div>
           </div>
@@ -1970,16 +1965,16 @@ SCREENS.about = {
           <div class="li-body"><div class="li-title">应用简介</div></div>
         </div>
         <div style="padding:0 16px 16px;font-size:var(--fs-sm);color:var(--ink-2);line-height:1.9">
-          反诈守护是一款由链域科技开发的全民反诈公益应用，致力于构建"求助者-守护者"双向守护网络。通过实时视频守护、信用评价体系、积分激励等机制，让每一位用户都能成为反诈防线的一环。
+          反诈守护是一款由链域科技开发的全民守护公益应用，致力于构建"求助者-守护者"双向守护网络。通过实时视频守护、积分激励等机制，让每一位用户都能成为守护防线的一环。
         </div>
       </div>
       <div style="margin:12px 16px" class="card">
-        <button class="list-item" style="width:100%;padding:14px 16px">
+        <button class="list-item" data-pp="terms" style="width:100%;padding:14px 16px">
           <div class="li-icon" style="background:var(--blue-l);color:var(--blue)">${ic('i-doc')}</div>
           <div class="li-body"><div class="li-title">用户协议</div></div>
           <span class="li-right">${ic('i-right')}</span>
         </button>
-        <button class="list-item" style="width:100%;padding:14px 16px">
+        <button class="list-item" data-pp="privacy" style="width:100%;padding:14px 16px">
           <div class="li-icon" style="background:var(--green-l);color:var(--green)">${ic('i-lock')}</div>
           <div class="li-body"><div class="li-title">隐私政策</div></div>
           <span class="li-right">${ic('i-right')}</span>
@@ -1995,6 +1990,7 @@ SCREENS.about = {
   },
   mount() {
     bindBack(app);
+    app.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => go('legal', { type: b.dataset.pp }));
     $('#checkUpdateBtn').onclick = () => checkUpdate();
   }
 };
@@ -2028,7 +2024,7 @@ function switchRole() {
       </button>
       <button class="type-card" style="margin:0 0 6px;width:100%" data-sw="guardian">
         <div class="tc-icon" style="background:var(--green)">${ic('i-shield')}</div>
-        <div style="flex:1"><h3>守护者</h3><p>${S.guard.authed ? '在线接单、等级信用、积分激励' : '需先完成三步认证'}</p></div>
+        <div style="flex:1"><h3>守护者</h3><p>${S.guard.authed ? '在线守护、等级成长、积分激励' : '需先完成实名认证'}</p></div>
         ${S.role === 'guardian' ? '<span class="tag-mini tag-green">当前</span>' : ''}
       </button>
     </div>`, true);
@@ -2037,7 +2033,7 @@ function switchRole() {
     const r = b.dataset.sw;
     if (r === 'seeker') { S.role = 'seeker'; S.guard.online = false; toast('已切换为求助者身份', 'i-check'); resetTo('home'); }
     else if (S.guard.authed) { S.role = 'guardian'; toast('已切换为守护者身份', 'i-check'); resetTo('guard'); }
-    else { toast('首次切换为守护者，请完成三步认证', 'i-alert'); go('auth-name'); }
+    else { toast('首次切换为守护者，请完成实名认证', 'i-alert'); go('auth-name'); }
   });
 }
 
@@ -2049,18 +2045,17 @@ SCREENS['account-security'] = {
     return `
     <div class="screen">
       ${navbar('账号与安全')}
-      <div class="proto-note">解绑前须保证账号至少保留一种可用登录方式，否则将无法登录。换绑手机号需验证新号码。</div>
+      <div class="proto-note">解绑前须保证账号至少保留一种可用登录方式，否则将无法登录。</div>
 
       <div class="sec-title">登录方式</div>
       <div style="margin:0 16px" class="card">
-        <button class="list-item" id="rebindPhone" style="width:100%">
+        <div class="list-item">
           <div class="li-icon" style="background:var(--blue-l);color:var(--blue)">${ic('i-phone')}</div>
           <div class="li-body">
             <div class="li-title">手机号</div>
             <div class="li-sub">${a.phone || '未绑定'}</div>
           </div>
-          <span class="li-right" style="color:var(--blue);font-size:var(--fs-sm)">${a.phone ? '换绑' : '绑定'}</span>
-        </button>
+        </div>
         <button class="list-item" id="toggleWechat" style="width:100%">
           <div class="li-icon" style="background:#07C1601A;color:#07C160">${ic('i-wechat')}</div>
           <div class="li-body">
@@ -2083,7 +2078,6 @@ SCREENS['account-security'] = {
       <div style="margin:0 16px 20px;padding:14px 16px" class="card">
         <div style="font-size:var(--fs-sm);color:var(--ink-2);line-height:1.9">
           ${ic('i-shield')}<b style="color:var(--ink)">当前已绑定 ${boundCount} 种登录方式</b><br>
-          · 换绑手机号需接收新手机号的验证码<br>
           · 解绑第三方账号后，将无法使用该方式登录<br>
           · 账号至少保留一种登录方式，否则无法解绑
         </div>
@@ -2101,7 +2095,6 @@ SCREENS['account-security'] = {
   },
   mount() {
     bindBack(app);
-    $('#rebindPhone').onclick = () => showRebindPhone();
     $('#toggleWechat').onclick = () => {
       if (S.account.wechat) tryUnbind('wechat');
       else bindThird('微信', 'wechat');
@@ -2118,52 +2111,6 @@ SCREENS['account-security'] = {
 function boundLoginCount() {
   const a = S.account;
   return (a.phone ? 1 : 0) + (a.wechat ? 1 : 0) + (a.apple ? 1 : 0);
-}
-
-/* 换绑手机号 */
-function showRebindPhone() {
-  const m = openModal(`
-    <div class="sheet-panel">
-      <div class="sheet-handle"></div>
-      <h3 style="margin-bottom:6px">换绑手机号</h3>
-      <p style="font-size:var(--fs-sm);color:var(--ink-3);margin-bottom:16px">当前手机号：${S.account.phone}</p>
-      <div class="form-field" style="margin:0 0 12px">
-        <label>新手机号</label>
-        <input class="input" id="npPhone" type="tel" maxlength="11" placeholder="请输入新手机号">
-      </div>
-      <div class="form-field" style="margin:0 0 18px">
-        <label>验证码</label>
-        <div class="input-row">
-          <input class="input" id="npCode" type="tel" maxlength="6" placeholder="请输入6位验证码">
-          <button class="code-btn" id="npCodeBtn">获取验证码</button>
-        </div>
-      </div>
-      <button class="btn btn-primary btn-lg btn-block" data-save>确认换绑</button>
-    </div>`, true);
-  let cool = 0;
-  m.querySelector('#npCodeBtn').onclick = e => {
-    const phone = m.querySelector('#npPhone').value.trim();
-    if (!/^1\d{10}$/.test(phone)) return toast('请输入正确的 11 位手机号', 'i-alert');
-    cool = 60;
-    e.target.disabled = true;
-    e.target.textContent = `${cool}s 后重发`;
-    toast('验证码已发送（演示码：135790）', 'i-check');
-    every(() => {
-      cool--;
-      if (cool <= 0) { m.querySelector('#npCodeBtn').disabled = false; m.querySelector('#npCodeBtn').textContent = '重新获取'; clearTimers(); }
-      else m.querySelector('#npCodeBtn').textContent = `${cool}s 后重发`;
-    }, 1000);
-  };
-  m.querySelector('[data-save]').onclick = () => {
-    const phone = m.querySelector('#npPhone').value.trim();
-    const code = m.querySelector('#npCode').value.trim();
-    if (!/^1\d{10}$/.test(phone)) return toast('请输入正确的 11 位手机号', 'i-alert');
-    if (!/^\d{6}$/.test(code)) return toast('请输入 6 位数字验证码', 'i-alert');
-    S.account.phone = phone.slice(0, 3) + '****' + phone.slice(7);
-    closeModal(m);
-    toast('手机号换绑成功', 'i-check');
-    render('account-security');
-  };
 }
 
 /* 绑定第三方账号 */
@@ -2378,7 +2325,7 @@ function showDeleteAccount() {
       <div class="d-sub" style="text-align:left">
         注销后以下数据将被永久删除，不可恢复：<br>
         · 账号个人信息与实名认证<br>
-        · 积分、等级、信用分<br>
+        · 积分、等级<br>
         · 求助/守护记录与消息<br>
         · 兑换订单与收货地址
       </div>
