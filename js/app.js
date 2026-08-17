@@ -1889,7 +1889,7 @@ SCREENS.profile = {
         ['address', 'i-loc', '#D6336C', '收货地址', ''],
       ] : []),
       ['records', 'i-doc', '#0B7285', isGuard ? '守护记录' : '求助记录', `${S.records.length} 条记录`],
-      ['account-security', 'i-lock', '#5A6B84', '账号与安全', '解绑第三方 · 注销账号'],
+      ['account-security', 'i-lock', '#5A6B84', '账号与安全', '注销账号 · 手机号登录'],
       ['service', 'i-headset', '#5A6B84', '客服中心', '96110 · 客服热线 · 投诉建议'],
       ['switch-role', 'i-refresh', '#6C5CE7', '切换身份', isGuard ? '当前：守护者' : '当前：求助者'],
       ['about', 'i-info', '#5A6B84', '关于我们', ''],
@@ -2044,11 +2044,9 @@ function switchRole() {
 SCREENS['account-security'] = {
   html() {
     const a = S.account;
-    const boundCount = (a.phone ? 1 : 0) + (a.wechat ? 1 : 0) + (a.apple ? 1 : 0);
     return `
     <div class="screen">
       ${navbar('账号与安全')}
-      <div class="proto-note">解绑前须保证账号至少保留一种可用登录方式，否则将无法登录。</div>
 
       <div class="sec-title">登录方式</div>
       <div style="margin:0 16px" class="card">
@@ -2058,31 +2056,6 @@ SCREENS['account-security'] = {
             <div class="li-title">手机号</div>
             <div class="li-sub">${a.phone || '未绑定'}</div>
           </div>
-        </div>
-        <button class="list-item" id="toggleWechat" style="width:100%">
-          <div class="li-icon" style="background:#07C1601A;color:#07C160">${ic('i-wechat')}</div>
-          <div class="li-body">
-            <div class="li-title">微信</div>
-            <div class="li-sub">${a.wechat ? '已绑定' : '未绑定'}</div>
-          </div>
-          <span class="li-right" style="color:${a.wechat ? 'var(--ink-4)' : 'var(--blue)'};font-size:var(--fs-sm)">${a.wechat ? '解绑' : '绑定'}</span>
-        </button>
-        <button class="list-item" id="toggleApple" style="width:100%">
-          <div class="li-icon" style="background:var(--ink-3);color:#fff">${ic('i-apple')}</div>
-          <div class="li-body">
-            <div class="li-title">Apple</div>
-            <div class="li-sub">${a.apple ? '已绑定' : '未绑定'}</div>
-          </div>
-          <span class="li-right" style="color:${a.apple ? 'var(--ink-4)' : 'var(--blue)'};font-size:var(--fs-sm)">${a.apple ? '解绑' : '绑定'}</span>
-        </button>
-      </div>
-
-      <div class="sec-title">安全提示</div>
-      <div style="margin:0 16px 20px;padding:14px 16px" class="card">
-        <div style="font-size:var(--fs-sm);color:var(--ink-2);line-height:1.9">
-          ${ic('i-shield')}<b style="color:var(--ink)">当前已绑定 ${boundCount} 种登录方式</b><br>
-          · 解绑第三方账号后，将无法使用该方式登录<br>
-          · 账号至少保留一种登录方式，否则无法解绑
         </div>
       </div>
 
@@ -2098,67 +2071,9 @@ SCREENS['account-security'] = {
   },
   mount() {
     bindBack(app);
-    $('#toggleWechat').onclick = () => {
-      if (S.account.wechat) tryUnbind('wechat');
-      else bindThird('微信', 'wechat');
-    };
-    $('#toggleApple').onclick = () => {
-      if (S.account.apple) tryUnbind('apple');
-      else bindThird('Apple', 'apple');
-    };
     $('#deleteAccountBtn').onclick = showDeleteAccount;
   }
 };
-
-/* 统计已绑定登录方式数量 */
-function boundLoginCount() {
-  const a = S.account;
-  return (a.phone ? 1 : 0) + (a.wechat ? 1 : 0) + (a.apple ? 1 : 0);
-}
-
-/* 绑定第三方账号 */
-function bindThird(name, key) {
-  const m = openModal(`
-    <div class="dialog">
-      <div class="d-icon" style="background:var(--blue-l);color:var(--blue)">${ic(key === 'wechat' ? 'i-wechat' : 'i-apple')}</div>
-      <h3>绑定${name}账号</h3>
-      <div class="d-sub">即将跳转至${name}完成授权绑定</div>
-      <div class="d-btns">
-        <button class="btn btn-plain" data-x>取消</button>
-        <button class="btn btn-primary" data-ok>前往授权</button>
-      </div>
-    </div>`);
-  m.querySelector('[data-x]').onclick = () => closeModal(m);
-  m.querySelector('[data-ok]').onclick = () => {
-    closeModal(m);
-    const btn = openModal(`
-      <div class="dialog">
-        <div class="result-badge" style="width:72px;height:72px;background:linear-gradient(135deg,#1E6FC0,#185FA5)">${ic('i-refresh')}</div>
-        <h3>${name}授权中…</h3>
-        <div class="d-sub">正在连接${name}，请稍候</div>
-      </div>`);
-    btn.dataset.lock = '1';
-    tick(() => {
-      closeModal(btn);
-      S.account[key] = true;
-      toast(`${name}账号绑定成功`, 'i-check');
-      render('account-security');
-    }, 1200);
-  };
-}
-
-/* 解绑第三方账号（保证至少一种登录方式） */
-function tryUnbind(key) {
-  const name = key === 'wechat' ? '微信' : 'Apple';
-  if (boundLoginCount() <= 1) {
-    return toast('账号至少保留一种登录方式，无法解绑', 'i-alert');
-  }
-  confirmDlg(`解绑${name}`, `解绑后将无法使用${name}登录本账号，确定要解绑吗？`, '确认解绑', () => {
-    S.account[key] = false;
-    toast(`${name}已解绑`, 'i-check');
-    render('account-security');
-  }, true);
-}
 
 /* ============ 24. 客服中心 ============ */
 SCREENS.service = {
