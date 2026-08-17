@@ -53,7 +53,6 @@ const S = {
 
 let curProduct = null;
 let curRateId = null;               // 当前正在评价的记录 id
-let reportType = null;              // 举报线索选中的诈骗类型
 let complaintType = null;           // 投诉建议选中的反馈类型
 let quiz = null;                    // 测评会话
 let callTimerSec = 0;
@@ -1908,8 +1907,8 @@ SCREENS.profile = {
           </div>
         </div>
       </div>
-      <div class="me-stats">
-        <button data-ms="${isGuard ? 'points' : 'report'}"><b style="color:var(--gold)">${isGuard ? fmt(g.points) : '0'}</b><span>${isGuard ? '我的积分' : '举报线索'}</span></button>
+      <div class="me-stats ${isGuard ? '' : 'col-2'}">
+        ${isGuard ? `<button data-ms="points"><b style="color:var(--gold)">${fmt(g.points)}</b><span>我的积分</span></button>` : ''}
         <button data-ms="records"><b style="color:var(--blue)">${isGuard ? g.helps : S.records.length}</b><span>${isGuard ? '累计守护' : '求助次数'}</span></button>
         <button data-ms="msgs"><b style="color:var(--green)">${S.msgs.filter(m => m.unread).length}</b><span>未读消息</span></button>
       </div>
@@ -1939,7 +1938,6 @@ SCREENS.profile = {
       const k = b.dataset.ms;
       if (k === 'points') resetTo('mall');
       else if (k === 'records') go('records');
-      else if (k === 'report') go('report-clue');
       else resetTo('messages');
     });
     $('#logoutBtn').onclick = () => confirmDlg('退出登录', '退出后需重新登录才能使用守护服务', '退出', () => {
@@ -2019,7 +2017,7 @@ function switchRole() {
       <h3 style="margin-bottom:16px">切换身份</h3>
       <button class="type-card" style="margin:0 0 10px;width:100%" data-sw="seeker">
         <div class="tc-icon" style="background:var(--blue)">${ic('i-user')}</div>
-        <div style="flex:1"><h3>求助者</h3><p>发起求助、评价服务、举报线索</p></div>
+        <div style="flex:1"><h3>求助者</h3><p>发起求助、评价服务</p></div>
         ${S.role === 'seeker' ? '<span class="tag-mini tag-blue">当前</span>' : ''}
       </button>
       <button class="type-card" style="margin:0 0 6px;width:100%" data-sw="guardian">
@@ -2266,52 +2264,6 @@ SCREENS.complaint = {
       complaintType = null;
       toast('感谢您的反馈，我们将在 3 个工作日内回复', 'i-check');
       tick(() => back(), 1000);
-    };
-  }
-};
-
-/* ============ 25. 举报诈骗线索 ============ */
-SCREENS['report-clue'] = {
-  html() {
-    return `
-    <div class="screen">
-      ${navbar('举报诈骗线索')}
-      <div class="proto-note" style="margin:16px">您提供的每一条线索都将帮助平台识别新型诈骗手法，保护更多人免受损失。举报信息将严格保密。</div>
-      <div class="sec-title">诈骗类型</div>
-      <div style="margin:0 16px 6px;padding:0 4px;display:flex;gap:8px;flex-wrap:wrap">
-        ${FRAUD_TYPES.map(t => `<button class="chip ${reportType === t.id ? 'on' : ''}" data-rt="${t.id}">${t.name}</button>`).join('')}
-      </div>
-      <div class="form-field" style="margin:16px">
-        <label>线索描述</label>
-        <textarea class="input" id="clueText" rows="4" placeholder="请详细描述您遇到的疑似诈骗情况，包括：对方联系方式、诈骗手段、涉及金额等"></textarea>
-      </div>
-      <div class="form-field" style="margin:0 16px 16px">
-        <label>证据截图（选填）</label>
-        <button class="btn btn-ghost btn-block" id="uploadEvidence">${ic('i-plus')}上传截图/录音</button>
-      </div>
-      <div class="form-field" style="margin:0 16px 16px">
-        <label>联系方式（选填）</label>
-        <input class="input" id="clueContact" placeholder="手机号或微信号，便于核实">
-      </div>
-      <div class="bottom-cta">
-        <button class="btn btn-primary btn-lg btn-block" id="submitClue">提交举报</button>
-      </div>
-    </div>`;
-  },
-  mount() {
-    bindBack(app);
-    app.querySelectorAll('[data-rt]').forEach(b => b.onclick = () => {
-      reportType = b.dataset.rt;
-      render('report-clue');
-    });
-    $('#uploadEvidence').onclick = () => toast('原型演示：图片上传占位');
-    $('#submitClue').onclick = () => {
-      if (!reportType) return toast('请选择诈骗类型', 'i-alert');
-      if (!$('#clueText').value.trim()) return toast('请描述线索内容', 'i-alert');
-      const type = FRAUD_TYPES.find(t => t.id === reportType);
-      toast('举报已提交，感谢您的贡献', 'i-check');
-      reportType = null;
-      tick(() => back(), 800);
     };
   }
 };
