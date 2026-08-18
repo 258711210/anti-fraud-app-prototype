@@ -342,6 +342,17 @@ textarea.input{height:auto;min-height:96px;padding:12px 16px;resize:none;font-si
 }
 .skip-auth-btn:active{opacity:.7}
 
+/* 身份证 OCR 识别卡片 */
+.ocr-card{margin:0 16px 18px;display:flex;align-items:center;gap:12px;border:1.5px dashed var(--blue-l);border-radius:var(--r-lg);padding:14px;background:var(--blue-xl);transition:var(--tr)}
+.ocr-card:active{opacity:.7}
+.ocr-icon{width:44px;height:44px;border-radius:12px;background:var(--card);display:flex;align-items:center;justify-content:center;flex:none}
+.ocr-icon .ic{width:24px;height:24px;color:var(--blue)}
+.ocr-info{flex:1;text-align:left;min-width:0}
+.ocr-info b{font-size:var(--fs-sm);color:var(--ink);display:block}
+.ocr-info span{font-size:var(--fs-xs);color:var(--ink-3);display:block;margin-top:2px;line-height:1.4}
+.ocr-arrow{flex:none;color:var(--ink-4)}
+.ocr-arrow .ic{width:16px;height:16px}
+
 /* ============ 认证流程 ============ */
 .steps{display:flex;align-items:center;padding:18px 26px 6px;flex:none}
 .step{flex:1;text-align:center;position:relative}

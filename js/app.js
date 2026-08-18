@@ -486,9 +486,6 @@ SCREENS['auth-name'] = {
     return `
     <div class="screen">
       ${navbar('守护者认证')}
-      <div class="steps">
-        <div class="step cur"><i>1</i><span>实名活体</span></div>
-      </div>
       <div id="authStage" style="flex:1;display:flex;flex-direction:column"></div>
     </div>`;
   },
@@ -501,9 +498,17 @@ SCREENS['auth-name'] = {
 function showRealnameForm() {
   $('#authStage').innerHTML = `
     <div style="padding:20px 0 0">
-      <div class="form-field"><label>真实姓名</label><input class="input" id="rnName" placeholder="请输入与身份证一致的姓名"></div>
-      <div class="form-field"><label>身份证号</label><input class="input" id="rnId" maxlength="18" placeholder="请输入18位身份证号"></div>
-      <div class="proto-note">实名信息将加密存储，仅用于守护者资质审核（PRD 4.4.2）。原型中身份信息不做真实校验。</div>
+      <div class="ocr-card" id="ocrTrigger">
+        <div class="ocr-icon">${ic('i-doc')}</div>
+        <div class="ocr-info">
+          <b>身份证识别</b>
+          <span>点击上传身份证照片，自动识别填入</span>
+        </div>
+        <span class="ocr-arrow">${ic('i-right')}</span>
+      </div>
+      <div class="form-field"><label>真实姓名</label><input class="input" id="rnName" placeholder="可手动输入或识别后修改"></div>
+      <div class="form-field"><label>身份证号</label><input class="input" id="rnId" maxlength="18" placeholder="18位身份证号，识别后仍可修改"></div>
+      <div class="proto-note">实名信息将加密存储，仅用于守护者资质审核（PRD 4.4.2）。原型中 OCR 识别为模拟演示。</div>
       <div style="padding:14px 16px"><button class="btn btn-primary btn-lg btn-block" id="toFace">下一步：活体检测</button></div>
       <button class="skip-auth-btn" id="rnSkip" style="width:auto;margin:0 auto 24px">测试：跳过认证，直接进入守护者工作台</button>
     </div>`;
@@ -518,6 +523,35 @@ function showRealnameForm() {
     S.role = 'guardian';
     toast('已跳过实名认证（测试模式）', 'i-check');
     resetTo('guard');
+  };
+  /* OCR 识别（模拟）：点击身份证 → 弹窗选择拍照/相册 → 自动填入，可手动修改 */
+  const runOcr = via => {
+    toast(`${via}，身份证识别中…`, 'i-doc');
+    $('#rnName').value = '识别中…'; $('#rnName').disabled = true;
+    $('#rnId').value = '识别中…'; $('#rnId').disabled = true;
+    tick(() => {
+      $('#rnName').value = '张建国'; $('#rnName').disabled = false;
+      $('#rnId').value = '110101199001011234'; $('#rnId').disabled = false;
+      toast('识别成功，请核对信息（可手动修改）', 'i-check');
+    }, 1500);
+  };
+  $('#ocrTrigger').onclick = () => {
+    const m = openModal(`
+      <div class="sheet-panel">
+        <div class="sheet-handle"></div>
+        <h3 style="text-align:center;margin-bottom:14px">识别身份证</h3>
+        <button class="type-card" style="margin:0 0 10px;width:100%" data-via="camera">
+          <div class="tc-icon" style="background:var(--blue)">${ic('i-camera')}</div>
+          <div style="flex:1;text-align:left"><h3>拍照识别</h3><p>使用相机拍摄身份证正面</p></div>
+        </button>
+        <button class="type-card" style="margin:0 0 12px;width:100%" data-via="upload">
+          <div class="tc-icon" style="background:var(--green)">${ic('i-img')}</div>
+          <div style="flex:1;text-align:left"><h3>从相册选择</h3><p>选择已保存的身份证照片</p></div>
+        </button>
+        <button class="btn btn-plain btn-block" data-x>取消</button>
+      </div>`, true);
+    m.querySelector('[data-x]').onclick = () => closeModal(m);
+    m.querySelectorAll('[data-via]').forEach(b => b.onclick = () => { closeModal(m); runOcr(b.dataset.via === 'camera' ? '已打开相机' : '已选择照片'); });
   };
 }
 
