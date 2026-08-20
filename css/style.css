@@ -1194,3 +1194,52 @@ textarea.input{height:auto;min-height:96px;padding:12px 16px;resize:none;font-si
 .shop-sec-title{display:flex;align-items:center;gap:8px;font-size:var(--fs-lg);font-weight:700;margin:18px 4px 0}
 .shop-sec-count{font-size:11px;font-weight:600;color:var(--ink-4);background:var(--line-2);padding:2px 8px;border-radius:10px}
 .shop-prod-grid{padding-top:10px}
+
+/* ============================================================
+   SP2 个人资料管理 · 昵称/头像
+   ============================================================ */
+/* 用户头像（通用：我的页 / 编辑资料页） */
+.user-avatar-img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+.user-avatar-default{
+  width:100%;height:100%;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#185FA5 0%,#0F6E56 100%);color:#fff;
+}
+.user-avatar-default .ic{width:55%;height:55%;opacity:.35}
+.user-avatar-default b{position:absolute;font-size:22px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.3)}
+.me-avatar{position:relative;overflow:hidden}
+
+/* 我的页用户信息卡可点击 */
+.me-top-btn{width:100%;display:flex;align-items:center;gap:14px;text-align:left;cursor:pointer;background:transparent;border:none;padding:0}
+.me-top-btn:active .me-avatar{transform:scale(.96)}
+.me-edit-hint{display:flex;color:rgba(255,255,255,.55);flex:none}
+.me-edit-hint .ic{width:18px;height:18px}
+
+/* 编辑资料页 */
+.ep-section{
+  margin:12px 16px 0;background:var(--card);border-radius:var(--r-lg);padding:18px 16px;
+  box-shadow:var(--sh-sm);display:flex;flex-direction:column;align-items:center;
+}
+.ep-avatar-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+.ep-avatar{
+  width:88px;height:88px;border-radius:50%;overflow:hidden;position:relative;
+  border:3px solid var(--line-2);background:var(--card-2);
+}
+.ep-avatar-tag{font-size:var(--fs-xs);color:var(--ink-4)}
+.ep-avatar-actions{display:flex;gap:10px;margin-top:12px}
+.ep-tip{font-size:var(--fs-xs);color:var(--ink-4);text-align:center;margin-top:10px;line-height:1.6}
+.ep-sec-title{font-size:var(--fs-md);font-weight:700;align-self:flex-start;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.ep-sec-title .ic{width:16px;height:16px;color:var(--blue)}
+.ep-nick-box{position:relative;width:100%;margin-bottom:4px}
+.ep-input{
+  width:100%;height:48px;border:1.5px solid var(--line-2);border-radius:12px;padding:0 48px 0 14px;
+  font-size:var(--fs-md);color:var(--ink);background:var(--card);transition:var(--tr);
+}
+.ep-input:focus{border-color:var(--blue);outline:none}
+.ep-input-count{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--ink-4)}
+.ep-lock{
+  width:100%;margin:8px 0 12px;padding:10px 12px;border-radius:10px;background:var(--orange-l);
+  color:var(--orange-d);font-size:var(--fs-xs);display:flex;align-items:center;gap:6px;
+}
+.ep-lock .ic{width:14px;height:14px;flex:none}
+#saveNickBtn{margin-top:14px}
+.ep-privacy p{font-size:var(--fs-xs);color:var(--ink-3);line-height:1.7;align-self:flex-start}

@@ -7,10 +7,10 @@ const S = {
   agreed: false,
   role: null,                       // 'seeker' | 'guardian'
   loginTab: 'onekey',
-  seeker: { name: '勇敢的小熊 8253', points: 260 },
+  seeker: { name: '勇敢的小熊 8253', points: 260, avatar: '', nickModifiedAt: 0 },
   guard: {
     authed: false, name: '李守护者', level: 3, helps: 68, score: 4.6,
-    credit: 82, points: 1280, online: false,
+    credit: 82, points: 1280, online: false, avatar: '', nickModifiedAt: 0,
     tags: ['冒充客服退款类', '网络刷单类', '冒充公检法类'],
     badges: [
       { id: 'b1', name: '守护公检法卫士', icon: 'i-alert', color: '#A32D2D', type: 'gst', desc: '完成「冒充公检法类」答题挑战', earned: true, time: '2026-07-15' },
@@ -192,6 +192,13 @@ function bindBack(root) {
 }
 
 const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+/* SP2 用户头像渲染：有头像显示图片，无头像显示盾牌 + 昵称首字（默认头像） */
+function userAvatar(u, cls = '') {
+  if (u.avatar) return `<img class="user-avatar-img ${cls}" src="${u.avatar}" alt="头像">`;
+  const first = (u.name || '?' ).trim().charAt(0) || '守';
+  return `<span class="user-avatar-default ${cls}">${ic('i-shield')}<b>${first}</b></span>`;
+}
 
 /* ============================================================
    页面定义
@@ -2058,8 +2065,10 @@ SCREENS.profile = {
     return `
     <div class="screen has-tab">
       <div class="me-hero">
-        <div class="me-top">
-          <div class="me-avatar">${ic(isGuard ? 'i-shield' : 'i-user')}</div>
+        <button class="me-top me-top-btn" id="editProfileBtn">
+          <div class="me-avatar">
+            ${userAvatar(isGuard ? g : S.seeker)}
+          </div>
           <div style="flex:1;min-width:0">
             <div class="me-name-row">
               <h2>${isGuard ? g.name : S.seeker.name}</h2>
@@ -2071,7 +2080,8 @@ SCREENS.profile = {
                 : '<span class="tag-mini">求助者</span><span class="tag-mini">已登录</span>'}
             </div>
           </div>
-        </div>
+          <span class="me-edit-hint">${ic('i-right')}</span>
+        </button>
       </div>
       <div class="me-stats ${isGuard ? '' : 'col-2'}">
         ${isGuard ? `<button data-ms="points"><b style="color:var(--gold)">${fmt(g.points)}</b><span>我的积分</span></button>` : ''}
@@ -2106,10 +2116,114 @@ SCREENS.profile = {
       else if (k === 'records') go('records');
       else resetTo('messages');
     });
+    /* SP2 编辑资料入口 */
+    $('#editProfileBtn').onclick = () => go('edit-profile');
     $('#logoutBtn').onclick = () => confirmDlg('退出登录', '退出后需重新登录才能使用守护服务', '退出', () => {
       S.role = null; S.guard.online = false;
       resetTo('login');
     }, true);
+  }
+};
+
+/* ============ 23a. 编辑资料（SP2 昵称/头像） ============ */
+SCREENS['edit-profile'] = {
+  html() {
+    const isGuard = S.role === 'guardian';
+    const u = isGuard ? S.guard : S.seeker;
+    const now = Date.now();
+    const last = u.nickModifiedAt || 0;
+    const locked = last > 0 && (now - last) < 30 * 24 * 3600 * 1000;
+    const next = locked ? new Date(last + 30 * 24 * 3600 * 1000) : null;
+    const fmtDate = d => {
+      const p = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    };
+    return `
+    <div class="screen">
+      ${navbar('编辑资料')}
+      <div style="flex:1;padding-bottom:24px">
+        <!-- 头像区 -->
+        <div class="ep-section">
+          <div class="ep-avatar-wrap">
+            <div class="ep-avatar">${userAvatar(u, 'lg')}</div>
+            <span class="ep-avatar-tag">当前头像</span>
+          </div>
+          <div class="ep-avatar-actions">
+            <button class="btn btn-primary btn-sm" id="changeAvatarBtn">${ic('i-camera')}更换头像</button>
+            <button class="btn btn-ghost btn-sm" id="resetAvatarBtn">恢复默认头像</button>
+          </div>
+          <input type="file" id="avatarFile" accept="image/*" hidden>
+          <p class="ep-tip">支持 JPG/PNG，建议 1:1 图片，将自动裁剪为圆形展示</p>
+        </div>
+        <!-- 昵称区 -->
+        <div class="ep-section">
+          <div class="ep-sec-title">昵称</div>
+          <div class="ep-nick-box">
+            <input class="ep-input" id="nickInput" maxlength="12" placeholder="请输入昵称（2-12个字符）" value="${u.name || ''}">
+            <div class="ep-input-count" id="nickCount">${(u.name || '').length}/12</div>
+          </div>
+          <p class="ep-tip">支持中文、字母、数字、下划线；禁止含"公安/反诈中心/96110/官方"等词汇</p>
+          ${locked && next ? `<div class="ep-lock">${ic('i-clock')}30 天内仅可修改 1 次昵称，下次可修改时间：${fmtDate(next)}</div>` : ''}
+          <button class="btn btn-primary btn-lg btn-block" id="saveNickBtn" ${locked ? 'disabled' : ''}>${ic('i-check')}保存昵称</button>
+        </div>
+        <!-- 隐私说明 -->
+        <div class="ep-section ep-privacy">
+          <div class="ep-sec-title">${ic('i-shield')}隐私说明</div>
+          <p>昵称与头像将在<b>英雄榜单、评价与守护记录</b>中公开展示，请勿上传包含身份证号、银行卡号等敏感信息的图片。</p>
+        </div>
+      </div>
+    </div>`;
+  },
+  mount() {
+    bindBack(app);
+    const isGuard = S.role === 'guardian';
+    const u = isGuard ? S.guard : S.seeker;
+    const nickInput = $('#nickInput');
+    const updateCount = () => { $('#nickCount').textContent = `${nickInput.value.length}/12`; };
+    nickInput.addEventListener('input', updateCount);
+
+    /* 更换头像：选择图片 → 本地读取 → 模拟机审 → 更新头像 */
+    $('#changeAvatarBtn').onclick = () => $('#avatarFile').click();
+    $('#avatarFile').onchange = e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (!/image\/(jpeg|png|webp)/.test(file.type)) return toast('仅支持 JPG/PNG 图片', 'i-alert');
+      if (file.size > 5 * 1024 * 1024) return toast('图片不能超过 5MB', 'i-alert');
+      const reader = new FileReader();
+      reader.onload = ev => {
+        /* 模拟机审通过 */
+        u.avatar = ev.target.result;
+        render('edit-profile');
+        toast('头像已更新（机审通过）', 'i-check');
+      };
+      reader.readAsDataURL(file);
+    };
+    $('#resetAvatarBtn').onclick = () => {
+      confirmDlg('恢复默认头像', '将恢复为系统默认头像（盾牌 + 昵称首字）', '确认恢复', () => {
+        u.avatar = '';
+        render('edit-profile');
+        toast('已恢复默认头像', 'i-check');
+      });
+    };
+
+    /* 保存昵称：校验长度/敏感词/频率 */
+    $('#saveNickBtn').onclick = () => {
+      const v = nickInput.value.trim();
+      if (v.length < 2 || v.length > 12) { toast('昵称长度需为 2-12 个字符', 'i-alert'); return; }
+      if (/^\s*$|^[^\u4e00-\u9fa5a-zA-Z0-9_]+$/.test(v)) { toast('昵称需包含中文、字母或数字', 'i-alert'); return; }
+      const banned = ['公安', '反诈中心', '96110', '官方', '客服'];
+      for (const w of banned) {
+        if (v.includes(w)) { toast(`昵称不能包含"${w}"等词汇`, 'i-alert'); return; }
+      }
+      const now = Date.now();
+      if (u.nickModifiedAt && (now - u.nickModifiedAt) < 30 * 24 * 3600 * 1000) {
+        toast('30 天内仅可修改 1 次昵称', 'i-alert'); return;
+      }
+      u.name = v;
+      u.nickModifiedAt = now;
+      toast('昵称已更新', 'i-check');
+      render('edit-profile');
+    };
   }
 };
 
