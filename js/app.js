@@ -37,6 +37,7 @@ const S = {
       ] },
     { id: 'o2', no: 'SO20260721002', name: '《全民反诈手册》', icon: 'i-book', color: '#0B7285', points: 300, status: '已完成', time: '07-21 15:08' },
     { id: 'o3', no: 'SO20260712003', name: '守护者定制马克杯', icon: 'i-cup', color: '#B4610E', points: 600, status: '已取消', time: '07-12 09:41' },
+    { id: 'o4', no: 'SO20260818004', name: '腾讯视频定制抱枕', icon: 'i-gift', color: '#6C5CE7', points: 300, status: '取消中', time: '08-18 10:05' },
   ],
   msgs: JSON.parse(JSON.stringify(MESSAGES)),
   records: JSON.parse(JSON.stringify(HELP_RECORDS)),
@@ -52,6 +53,7 @@ const S = {
 };
 
 let curProduct = null;
+let curShop = null;              // SP2 当前浏览的店铺（商铺主页）
 let curRateId = null;               // 当前正在评价的记录 id
 let complaintType = null;           // 投诉建议选中的反馈类型
 let quiz = null;                    // 测评会话
@@ -1431,22 +1433,40 @@ SCREENS.mall = {
         </div>
         <button class="mall-orders" id="toOrders">${ic('i-gift')}兑换订单${ic('i-right')}</button>
       </div>
+      <!-- SP2 精选店铺（商户/赞助商店铺入口） -->
+      <div class="mall-shops">
+        <div class="mall-sec-head">
+          <span class="mall-sec-title">精选店铺</span>
+          <span class="mall-sec-sub">${ic('i-shield')}反诈联名 · 正品保障</span>
+        </div>
+        <div class="shop-strip">
+          ${SHOPS.map(s => `
+          <button class="shop-card" data-shop="${s.id}" style="--sc:${s.color}">
+            <span class="shop-logo" style="background:${s.color}">${s.logo ? `<img src="${s.logo}" alt="">` : s.name[0]}</span>
+            <span class="shop-nm">${s.name}</span>
+            <span class="shop-sub">${s.sub}</span>
+            <span class="shop-go">进店${ic('i-right')}</span>
+          </button>`).join('')}
+        </div>
+      </div>
       <div class="prod-grid">
         ${PRODUCTS.map(p => {
           const enough = pts >= p.points;
           const soldOut = p.stock <= 0;
           const sp = p.sponsor;
+          const shop = p.shopId ? SHOPS.find(x => x.id === p.shopId) : null;
           return `
           <div class="prod-card ${sp ? 'sponsored' : ''}" data-prod="${p.id}" ${sp ? `style="border-color:${sp.color}"` : ''}>
-            ${sp ? `<span class="sp-corner" style="background:${sp.color}">赞助</span>` : ''}
+            ${sp ? `<span class="sp-corner" style="background:${sp.color}">赞助</span>` : '<span class="self-corner">平台自营</span>'}
             <div class="prod-img">
               <img src="${p.img}" alt="${p.name}">
-              ${sp ? `<span class="p-brand"><span class="pb-logo" style="background:${sp.color}">${sp.logo ? `<img src="${sp.logo}" alt="">` : sp.name[0]}</span><span class="pb-txt"><b>${sp.name}</b><i>${sp.sub}</i></span></span>` : ''}
+              ${sp ? `<span class="p-brand"><span class="pb-logo" style="background:${sp.color}">${sp.logo ? `<img src="${sp.logo}" alt="">` : sp.name[0]}</span><span class="pb-txt"><b>${sp.name}</b><i>${sp.sub}</i></span></span>` : `<span class="p-brand self-brand"><span class="pb-logo" style="background:#185FA5">${ic('i-shield')}</span><span class="pb-txt"><b>平台自营</b><i>官方出品</i></span></span>`}
               ${soldOut ? '<span class="p-soldout">已售罄</span>' : ''}
             </div>
             <div class="prod-body">
               <div class="prod-name">${p.name}</div>
               <div class="prod-desc">${p.desc}</div>
+              ${shop ? `<button class="prod-shop-row" data-goshop="${p.shopId}"><span class="psr-logo" style="background:${shop.color}">${shop.logo ? `<img src="${shop.logo}" alt="">` : shop.name[0]}</span><span class="psr-name">${shop.name}</span><span class="psr-ex">${shop.exchange}人兑换过</span>${ic('i-right')}</button>` : ''}
               <div class="prod-foot">
                 <div class="prod-price">
                   <b>${fmt(p.points)}</b><span>积分</span>
@@ -1464,6 +1484,13 @@ SCREENS.mall = {
     $('#toOrders').onclick = () => go('orders');
     $('#howEarn').onclick = showHowEarn;
     app.querySelectorAll('[data-prod]').forEach(b => b.onclick = () => { curProduct = PRODUCTS.find(p => p.id === b.dataset.prod); go('product'); });
+    /* SP2 店铺入口 */
+    app.querySelectorAll('[data-shop]').forEach(b => b.onclick = () => { curShop = SHOPS.find(s => s.id === b.dataset.shop); go('shop'); });
+    app.querySelectorAll('[data-goshop]').forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      curShop = SHOPS.find(s => s.id === b.dataset.goshop);
+      go('shop');
+    });
     /* 卡片内直接兑换 */
     app.querySelectorAll('[data-buy]').forEach(b => b.onclick = e => {
       e.stopPropagation();
@@ -1510,7 +1537,7 @@ SCREENS.product = {
       <div class="detail-body">
         <div style="display:flex;gap:8px;align-items:center">
           <h2 style="font-size:var(--fs-xl);flex:1">${p.name}</h2>
-          <span class="tag-mini tag-blue">实物商品</span>
+          ${sp ? '<span class="tag-mini tag-blue">实物商品</span>' : '<span class="tag-mini tag-blue">实物商品</span><span class="tag-mini tag-self">平台自营</span>'}
         </div>
         <div class="detail-price">
           ${ic('i-coin')}${fmt(p.points)}
@@ -1533,6 +1560,7 @@ SCREENS.product = {
         ${sp.address ? `<div class="sp-addr">${ic('i-loc')}<span>${sp.address}</span></div>` : ''}
         ${sp.intro ? `<p class="sp-intro">${sp.intro}</p>` : ''}
         ${sp.phone ? `<button class="sp-phone" data-call="${sp.phone}">${ic('i-phone')}<span>联系商家 · ${sp.phone}</span></button>` : ''}
+        <button class="btn btn-primary btn-sm btn-block sp-enter" data-enter-shop="${p.shopId || ''}">${ic('i-bag')}进入店铺${ic('i-right')}</button>
       </div>
       ` : ''}
       <div class="detail-tabs">
@@ -1560,6 +1588,11 @@ SCREENS.product = {
     app.querySelectorAll('[data-shop]').forEach(b => b.onclick = () => {
       const name = b.dataset.shop === 'douyin' ? '抖音' : '快手';
       toast(`即将跳转到${name}商铺（原型演示）`, 'i-check');
+    });
+    /* SP2 进入店铺主页 */
+    app.querySelectorAll('[data-enter-shop]').forEach(b => b.onclick = () => {
+      const shop = SHOPS.find(s => s.id === b.dataset.enterShop);
+      if (shop) { curShop = shop; go('shop'); }
     });
     /* Tab switching */
     app.querySelectorAll('.dtab').forEach(t => t.onclick = () => {
@@ -1663,12 +1696,95 @@ function confirmExchange(p, addr) {
   };
 }
 
+/* ============ 18.5 店铺主页（SP2 商铺数据展示） ============ */
+SCREENS.shop = {
+  html() {
+    const s = curShop;
+    if (!s) return `<div class="screen">${navbar('店铺')}<div class="empty">店铺不存在</div></div>`;
+    const pts = S.role === 'guardian' ? S.guard.points : S.seeker.points;
+    const shopProducts = PRODUCTS.filter(p => p.shopId === s.id);
+    return `
+    <div class="screen">
+      ${navbar('', { cls: 'transparent' })}
+      <div class="shop-banner" style="background:${s.bannerColor}">
+        <div class="shop-banner-inner">
+          <span class="shop-banner-icon">${ic(s.bannerIcon)}</span>
+          <span class="shop-banner-txt">${s.slogan}</span>
+        </div>
+      </div>
+      <div class="shop-body">
+        <div class="shop-head-card">
+          <span class="shop-head-logo" style="background:${s.color}">${s.logo ? `<img src="${s.logo}" alt="">` : s.name[0]}</span>
+          <div class="shop-head-info">
+            <div class="shop-head-name">${s.name}<span class="shop-head-tag">赞助商</span></div>
+            <div class="shop-head-sub">${s.sub}</div>
+            <div class="shop-head-meta">${s.exchange}人兑换过本店商品</div>
+          </div>
+          <span class="shop-head-ex">${ic('i-star')}${s.exchange}</span>
+        </div>
+        ${s.intro ? `<p class="shop-intro">${s.intro}</p>` : ''}
+        <div class="shop-info-grid">
+          ${s.address ? `<div class="shop-info-item">${ic('i-loc')}<span>${s.address}</span></div>` : ''}
+          ${s.phone ? `<div class="shop-info-item">${ic('i-phone')}<span>${s.phone}</span></div>` : ''}
+          <div class="shop-info-item shop-links">
+            ${s.douyin ? `<button class="sp-shop" data-shop="douyin" data-url="${s.douyin}" title="抖音商铺">${ic('i-douyin')}</button>` : ''}
+            ${s.kuaishou ? `<button class="sp-shop" data-shop="kuaishou" data-url="${s.kuaishou}" title="快手商铺">${ic('i-kuaishou')}</button>` : ''}
+            <span class="shop-links-txt">店铺外链</span>
+          </div>
+        </div>
+        <div class="shop-sec-title">在售商品 <span class="shop-sec-count">${shopProducts.length}</span></div>
+        <div class="prod-grid shop-prod-grid">
+          ${shopProducts.map(p => {
+            const enough = pts >= p.points;
+            const soldOut = p.stock <= 0;
+            return `
+            <div class="prod-card" data-prod="${p.id}" style="border-color:${s.color}">
+              <span class="sp-corner" style="background:${s.color}">赞助</span>
+              <div class="prod-img">
+                <img src="${p.img}" alt="${p.name}">
+                <span class="p-brand"><span class="pb-logo" style="background:${s.color}">${s.logo ? `<img src="${s.logo}" alt="">` : s.name[0]}</span><span class="pb-txt"><b>${s.name}</b><i>${s.sub}</i></span></span>
+                ${soldOut ? '<span class="p-soldout">已售罄</span>' : ''}
+              </div>
+              <div class="prod-body">
+                <div class="prod-name">${p.name}</div>
+                <div class="prod-desc">${p.desc}</div>
+                <div class="prod-foot">
+                  <div class="prod-price"><b>${fmt(p.points)}</b><span>积分</span><s>原价: ¥${p.price}</s></div>
+                  <button class="prod-buy ${soldOut || !enough ? 'off' : ''}" data-buy="${p.id}">${soldOut ? '已售罄' : enough ? '兑换' : '积分不足'}</button>
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+  },
+  mount() {
+    bindBack(app);
+    const s = curShop;
+    if (!s) return;
+    app.querySelectorAll('[data-shop]').forEach(b => b.onclick = () => {
+      const name = b.dataset.shop === 'douyin' ? '抖音' : '快手';
+      toast(`即将跳转到${name}商铺（原型演示）`, 'i-check');
+    });
+    app.querySelectorAll('[data-prod]').forEach(b => b.onclick = () => { curProduct = PRODUCTS.find(p => p.id === b.dataset.prod); go('product'); });
+    app.querySelectorAll('[data-buy]').forEach(b => b.onclick = e => {
+      e.stopPropagation();
+      const p = PRODUCTS.find(x => x.id === b.dataset.buy);
+      const pts = S.role === 'guardian' ? S.guard.points : S.seeker.points;
+      if (p.stock <= 0) return toast('该商品已售罄', 'i-alert');
+      if (pts < p.points) return toast(`积分不足，还差 ${fmt(p.points - pts)} 积分`, 'i-alert');
+      showAddrSheet(p);
+    });
+  }
+};
+
 /* ============ 19. 兑换订单 ============ */
 SCREENS.orders = {
   html() {
-    const tabs = ['全部', '待发货', '已发货', '已完成', '已取消'];
+    const tabs = ['全部', '待发货', '取消中', '已发货', '已完成', '已取消'];
     const list = S.orders.filter(o => S.orderTab === '全部' || o.status === S.orderTab);
-    const colorOf = s => ({ '待发货': 'tag-orange', '已发货': 'tag-blue', '已完成': 'tag-green', '已取消': 'tag-gray' }[s]);
+    const colorOf = s => ({ '待发货': 'tag-orange', '取消中': 'tag-red', '已发货': 'tag-blue', '已完成': 'tag-green', '已取消': 'tag-gray' }[s]);
     return `
     <div class="screen">
       ${navbar('兑换订单')}
@@ -1685,11 +1801,13 @@ SCREENS.orders = {
                 <div style="font-weight:600;font-size:var(--fs-md)">${o.name}</div>
                 <div style="font-size:var(--fs-xs);color:var(--ink-4);margin-top:5px">下单时间 ${o.time}</div>
                 <div style="color:var(--gold);font-weight:700;margin-top:6px;font-size:var(--fs-md)">${fmt(o.points)} 积分</div>
+                ${o.status === '取消中' ? `<div style="font-size:var(--fs-xs);color:var(--red);margin-top:4px">已申请取消，商家 48 小时内处理</div>` : ''}
               </div>
             </div>
             <div class="oc-foot">
               ${o.status === '已发货' ? `<button class="btn btn-sm btn-ghost" data-logi="${o.id}">${ic('i-truck')}查看物流</button><button class="btn btn-sm btn-primary" data-recv="${o.id}">确认收货</button>` : ''}
-              ${o.status === '待发货' ? `<button class="btn btn-sm btn-plain" data-cancel="${o.id}">取消订单</button>` : ''}
+              ${o.status === '待发货' ? `<button class="btn btn-sm btn-plain" data-cancel="${o.id}">申请取消</button>` : ''}
+              ${o.status === '取消中' ? `<button class="btn btn-sm btn-ghost" data-cancelback="${o.id}">撤销申请</button>` : ''}
             </div>
           </div>`).join('')
         : `<div class="empty">${ic('i-doc')}<p>暂无相关订单</p></div>`}
@@ -1699,12 +1817,21 @@ SCREENS.orders = {
   mount() {
     bindBack(app);
     app.querySelectorAll('[data-ot]').forEach(b => b.onclick = () => { S.orderTab = b.dataset.ot; render('orders'); });
+    /* SP2 申请取消（待发货 → 取消中，商家处理后积分退回） */
     app.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => {
       const o = S.orders.find(x => x.id === b.dataset.cancel);
-      confirmDlg('取消订单', '取消后积分将即时退回您的账户', '确认取消', () => {
-        o.status = '已取消';
-        if (S.role === 'guardian') S.guard.points += o.points; else S.seeker.points += o.points;
-        toast('订单已取消，积分已退回', 'i-check');
+      confirmDlg('申请取消订单', '取消申请已提交，商家将在 48 小时内处理。\n同意后积分将原路退回您的账户。', '确认申请', () => {
+        o.status = '取消中';
+        toast('已提交取消申请，等待商家处理', 'i-check');
+        render('orders');
+      }, true);
+    });
+    /* 撤销取消申请 */
+    app.querySelectorAll('[data-cancelback]').forEach(b => b.onclick = () => {
+      const o = S.orders.find(x => x.id === b.dataset.cancelback);
+      confirmDlg('撤销取消申请', '确定撤销本次取消申请？订单将恢复为待发货状态。', '确认撤销', () => {
+        o.status = '待发货';
+        toast('已撤销取消申请', 'i-check');
         render('orders');
       }, true);
     });

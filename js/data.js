@@ -81,7 +81,7 @@ const PRODUCTS = [
     htmlDesc: `<h3>产品特点</h3>
       <ul><li>收录 60 个真实诈骗案例，覆盖十大高发类型</li><li>大字版设计，专为中老年人群编写</li><li>图文并茂，每章配套防骗口诀</li><li>附赠 96110 应急联系卡片</li></ul>
       <h3>适用人群</h3><p>适合全家人共同学习，尤其适合送给家中长辈，守护银发族的钱袋子。</p>` },
-  { id: 'p2', name: '不倒翁健身定制运动毛巾', cat: '实物', points: 1200, stock: 999, price: 199, img: 'assets/products/product-gym.png', icon: 'i-member', color: '#B8860B', hot: true, sponsor: { name: '不倒翁健身', sub: '专业健身 活力无限', color: '#CFA600', logo: '', intro: '不倒翁健身创立于 2015 年，专注大众健身与健康管理，全国 120+ 门店、专业教练 3000+ 名，致力于让运动更简单、更有趣。', phone: '400-888-6666', douyin: 'https://v.douyin.com/bdwjs', kuaishou: 'https://www.kuaishou.com/profile/bdwjs', address: '北京市朝阳区建国路88号 国贸商城3层' },
+  { id: 'p2', name: '不倒翁健身定制运动毛巾', cat: '实物', points: 1200, stock: 999, price: 199, img: 'assets/products/product-gym.png', icon: 'i-member', color: '#B8860B', hot: true, shopId: 's1', sponsor: { name: '不倒翁健身', sub: '专业健身 活力无限', color: '#CFA600', logo: '', intro: '不倒翁健身创立于 2015 年，专注大众健身与健康管理，全国 120+ 门店、专业教练 3000+ 名，致力于让运动更简单、更有趣。', phone: '400-888-6666', douyin: 'https://v.douyin.com/bdwjs', kuaishou: 'https://www.kuaishou.com/profile/bdwjs', address: '北京市朝阳区建国路88号 国贸商城3层' },
     desc: '加厚纯棉，吸汗速干，健身必备',
     htmlDesc: `<h3>产品特点</h3>
       <ul><li>精梳纯棉材质，亲肤柔软</li><li>快速吸汗，速干透气</li><li>加厚设计，结实耐用</li><li>多色可选，支持定制印花</li></ul>
@@ -91,11 +91,50 @@ const PRODUCTS = [
     htmlDesc: `<h3>核心参数</h3>
       <ul><li>银行级加密芯片，FIDO2 标准</li><li>支持指纹识别快速解锁</li><li>USB-A / Type-C 双接口</li><li>防丢挂绳设计，便于携带</li></ul>
       <h3>安全保障</h3><p>硬件级密钥存储，有效防范网络钓鱼与账号盗用。</p>` },
-  { id: 'p4', name: '不倒翁健身定制运动水壶', cat: '实物', points: 800, stock: 500, price: 68, img: 'assets/products/product-gym.png', icon: 'i-member', color: '#0F6E56', hot: false, sponsor: { name: '不倒翁健身', sub: '专业健身 活力无限', color: '#18C33E', logo: '', intro: '不倒翁健身创立于 2015 年，专注大众健身与健康管理，全国 120+ 门店、专业教练 3000+ 名，致力于让运动更简单、更有趣。', phone: '400-888-6666', douyin: 'https://v.douyin.com/bdwjs', kuaishou: 'https://www.kuaishou.com/profile/bdwjs', address: '北京市朝阳区建国路88号 国贸商城3层' },
+  { id: 'p4', name: '不倒翁健身定制运动水壶', cat: '实物', points: 800, stock: 500, price: 68, img: 'assets/products/product-gym.png', icon: 'i-member', color: '#0F6E56', hot: false, shopId: 's1', sponsor: { name: '不倒翁健身', sub: '专业健身 活力无限', color: '#18C33E', logo: '', intro: '不倒翁健身创立于 2015 年，专注大众健身与健康管理，全国 120+ 门店、专业教练 3000+ 名，致力于让运动更简单、更有趣。', phone: '400-888-6666', douyin: 'https://v.douyin.com/bdwjs', kuaishou: 'https://www.kuaishou.com/profile/bdwjs', address: '北京市朝阳区建国路88号 国贸商城3层' },
     desc: '大容量运动水壶，随身补水',
     htmlDesc: `<h3>产品特点</h3>
       <ul><li>大容量 750ml，满足单次训练饮水</li><li>食品级 Tritan 材质，安全无异味</li><li>一键弹盖，单手开合</li><li>防漏密封，随行便携</li></ul>
       <h3>配送说明</h3><p>兑换成功后 3 个工作日内发货，全国包邮，请留意物流信息。</p>` },
+  /* SP2 新增商户商品（赞助商商铺供给，需平台审核后上架） */
+  { id: 'p5', name: '腾讯视频定制抱枕', cat: '实物', points: 300, stock: 999, price: 69, img: 'assets/products/product-gym.png', icon: 'i-gift', color: '#6C5CE7', hot: false, shopId: 's2', sponsor: { name: '腾讯视频', sub: '海量影视 抢先看', color: '#6C5CE7', logo: '', intro: '腾讯视频VIP会员服务，覆盖海量影视剧集与综艺内容。反诈联名周边，守护你的观影时光。', phone: '400-670-0700', douyin: 'https://v.douyin.com/tencentvideo', kuaishou: 'https://www.kuaishou.com/profile/tencentvideo', address: '广东省深圳市南山区腾讯滨海大厦' },
+    desc: '亲肤面料，居家办公两相宜',
+    htmlDesc: `<h3>产品特点</h3>
+      <ul><li>腾讯视频联名定制抱枕</li><li>亲肤面料，柔软舒适</li><li>居家办公两相宜</li><li>支持水洗，不易变形</li></ul>
+      <h3>配送说明</h3><p>本商品由「腾讯视频官方店」提供，兑换成功后 3 个工作日内发货。</p>` },
+  { id: 'p6', name: '京东定制运动腰包', cat: '实物', points: 800, stock: 200, price: 99, img: 'assets/products/product-key.png', icon: 'i-gift', color: '#A32D2D', hot: false, shopId: 's3', sponsor: { name: '京东', sub: '多快好省 正品保障', color: '#A32D2D', logo: '', intro: '京东商城官方周边，多快好省正品保障。反诈联名运动腰包，轻便出行。', phone: '400-606-5500', douyin: 'https://v.douyin.com/jd', kuaishou: 'https://www.kuaishou.com/profile/jd', address: '北京市亦庄经济开发区京东总部' },
+    desc: '轻便防水，跑步出行必备',
+    htmlDesc: `<h3>产品特点</h3>
+      <ul><li>京东联名定制运动腰包</li><li>轻便防水，跑步出行必备</li><li>多仓位设计，收纳有序</li><li>反诈标语印花，公益同行</li></ul>
+      <h3>配送说明</h3><p>本商品由「京东公益店」提供，兑换成功后 3 个工作日内发货。</p>` },
+];
+
+/* ========== SP2 商铺（商户/赞助商）数据 ==========
+   商铺信息由商户在商户后台维护，用户端商城展示店铺主页。
+   bannerColor: 宣传位渐变色（正式环境为宣传图）
+   slogan: 宣传文案 */
+const SHOPS = [
+  { id: 's1', name: '不倒翁健身', sub: '专业健身 活力无限', color: '#CFA600', logo: '',
+    intro: '不倒翁健身创立于 2015 年，专注大众健身与健康管理，全国 120+ 门店、专业教练 3000+ 名，致力于让运动更简单、更有趣。',
+    address: '北京市朝阳区建国路88号 国贸商城3层', phone: '400-888-6666',
+    douyin: 'https://v.douyin.com/bdwjs', kuaishou: 'https://www.kuaishou.com/profile/bdwjs',
+    slogan: '反诈同行 · 健康相伴，运动让生活更美好！',
+    bannerColor: 'linear-gradient(135deg,#CFA600 0%,#8a6d00 100%)',
+    bannerIcon: 'i-member', exchange: 158, productIds: ['p2', 'p4'] },
+  { id: 's2', name: '腾讯视频', sub: '海量影视 抢先看', color: '#6C5CE7', logo: '',
+    intro: '腾讯视频VIP会员服务，覆盖海量影视剧集与综艺内容。与反诈守护平台联名推出公益周边，守护你的观影时光。',
+    address: '广东省深圳市南山区腾讯滨海大厦', phone: '400-670-0700',
+    douyin: 'https://v.douyin.com/tencentvideo', kuaishou: 'https://www.kuaishou.com/profile/tencentvideo',
+    slogan: '好剧相伴 · 反诈同行，擦亮双眼不踩坑！',
+    bannerColor: 'linear-gradient(135deg,#6C5CE7 0%,#3d2f9e 100%)',
+    bannerIcon: 'i-video', exchange: 89, productIds: ['p5'] },
+  { id: 's3', name: '京东', sub: '多快好省 正品保障', color: '#A32D2D', logo: '',
+    intro: '京东商城官方公益周边，多快好省正品保障。与反诈守护平台联名推出运动装备，守护每一次出行。',
+    address: '北京市亦庄经济开发区京东总部', phone: '400-606-5500',
+    douyin: 'https://v.douyin.com/jd', kuaishou: 'https://www.kuaishou.com/profile/jd',
+    slogan: '品质好物 · 反诈同心，守护你的钱袋子！',
+    bannerColor: 'linear-gradient(135deg,#A32D2D 0%,#6e1b1b 100%)',
+    bannerIcon: 'i-bag', exchange: 46, productIds: ['p6'] },
 ];
 
 /* 默认收货地址 */

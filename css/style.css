@@ -1116,3 +1116,81 @@ textarea.input{height:auto;min-height:96px;padding:12px 16px;resize:none;font-si
 .cse-body b{font-size:var(--fs-lg);display:block}
 .cse-body span{font-size:var(--fs-sm);opacity:.85;margin-top:4px;display:block}
 .cse-arrow{color:rgba(255,255,255,.7);flex:none}
+
+/* ============================================================
+   SP2 积分商城升级 · 商铺（商户/赞助商）相关样式
+   ============================================================ */
+/* 自营角标 */
+.self-corner{position:absolute;top:16px;right:-36px;z-index:10;transform:rotate(45deg);width:130px;text-align:center;padding:4px 0;color:#fff;font-size:10px;font-weight:700;letter-spacing:1px;background:#185FA5}
+.p-brand.self-brand .pb-logo{border-radius:50%}
+.p-brand.self-brand .pb-logo .ic{width:13px;height:13px}
+.tag-self{background:var(--blue-l);color:var(--blue);margin-left:6px}
+
+/* 精选店铺横滑区 */
+.mall-shops{padding:14px 16px 0;flex:none}
+.mall-sec-head{display:flex;align-items:baseline;gap:8px;margin-bottom:12px}
+.mall-sec-title{font-size:var(--fs-lg);font-weight:700}
+.mall-sec-sub{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-xs);color:var(--ink-4)}
+.mall-sec-sub .ic{width:13px;height:13px}
+.shop-strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+.shop-strip::-webkit-scrollbar{display:none}
+.shop-card{
+  flex:none;width:118px;background:var(--card);border-radius:var(--r-lg);padding:14px 12px 12px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:var(--sh-sm);
+  border:1.5px solid var(--line-2);cursor:pointer;transition:var(--tr);
+}
+.shop-card:active{transform:scale(.96)}
+.shop-logo{width:44px;height:44px;border-radius:14px;color:#fff;font-size:18px;font-weight:800;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.shop-logo img{width:100%;height:100%;object-fit:cover}
+.shop-nm{font-size:var(--fs-md);font-weight:700;color:var(--ink)}
+.shop-sub{font-size:11px;color:var(--ink-4);text-align:center;line-height:1.3;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.shop-go{display:inline-flex;align-items:center;gap:2px;font-size:11px;color:var(--blue);font-weight:600;margin-top:2px}
+.shop-go .ic{width:11px;height:11px}
+
+/* 商品卡片店铺行 */
+.prod-shop-row{
+  margin-top:10px;display:flex;align-items:center;gap:7px;width:100%;
+  padding:8px 10px;border-radius:10px;background:var(--card-2);cursor:pointer;transition:var(--tr);
+}
+.prod-shop-row:active{background:var(--line-2)}
+.psr-logo{width:22px;height:22px;border-radius:8px;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none}
+.psr-logo img{width:100%;height:100%;object-fit:cover}
+.psr-name{font-size:var(--fs-sm);font-weight:600;color:var(--ink)}
+.psr-ex{font-size:11px;color:var(--ink-4);margin-left:auto}
+.prod-shop-row>.ic{width:13px;height:13px;color:var(--ink-4);flex:none}
+
+/* 商品详情页进入店铺 */
+.sp-enter{margin-top:12px;display:flex;align-items:center;justify-content:center;gap:6px}
+.sp-enter .ic{width:16px;height:16px}
+
+/* ============ 店铺主页 ============ */
+.shop-banner{height:140px;flex:none;display:flex;align-items:center;justify-content:center;position:relative}
+.shop-banner-inner{display:flex;flex-direction:column;align-items:center;gap:8px;color:#fff;text-align:center;padding:0 30px}
+.shop-banner-icon{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center}
+.shop-banner-icon .ic{width:24px;height:24px}
+.shop-banner-txt{font-size:var(--fs-md);font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.2)}
+.shop-body{margin:-18px 16px 0;position:relative;z-index:2;padding-bottom:24px}
+.shop-head-card{
+  background:var(--card);border-radius:var(--r-xl);padding:18px;box-shadow:var(--sh-md);
+  display:flex;align-items:center;gap:12px;
+}
+.shop-head-logo{width:52px;height:52px;border-radius:16px;color:#fff;font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none}
+.shop-head-logo img{width:100%;height:100%;object-fit:cover}
+.shop-head-info{flex:1;min-width:0}
+.shop-head-name{font-size:var(--fs-lg);font-weight:800;display:flex;align-items:center;gap:6px}
+.shop-head-tag{font-size:10px;font-weight:600;color:#fff;background:linear-gradient(135deg,#E8590C,#F76707);padding:2px 7px;border-radius:6px}
+.shop-head-sub{font-size:var(--fs-sm);color:var(--ink-3);margin-top:3px}
+.shop-head-meta{font-size:11px;color:var(--ink-4);margin-top:4px}
+.shop-head-ex{flex:none;display:inline-flex;align-items:center;gap:3px;color:var(--gold);font-weight:700;font-size:var(--fs-md)}
+.shop-head-ex .ic{width:14px;height:14px}
+.shop-intro{background:var(--card);border-radius:var(--r-lg);padding:14px 16px;margin-top:10px;font-size:var(--fs-sm);color:var(--ink-2);line-height:1.7;box-shadow:var(--sh-sm)}
+.shop-info-grid{display:flex;flex-direction:column;gap:8px;margin-top:10px;background:var(--card);border-radius:var(--r-lg);padding:14px 16px;box-shadow:var(--sh-sm)}
+.shop-info-item{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:var(--ink-2)}
+.shop-info-item .ic{width:15px;height:15px;color:var(--ink-4);flex:none}
+.shop-info-item span{flex:1;min-width:0}
+.shop-links{display:flex;align-items:center;gap:8px}
+.shop-links .sp-shop{flex:none}
+.shop-links-txt{font-size:11px;color:var(--ink-4)}
+.shop-sec-title{display:flex;align-items:center;gap:8px;font-size:var(--fs-lg);font-weight:700;margin:18px 4px 0}
+.shop-sec-count{font-size:11px;font-weight:600;color:var(--ink-4);background:var(--line-2);padding:2px 8px;border-radius:10px}
+.shop-prod-grid{padding-top:10px}
