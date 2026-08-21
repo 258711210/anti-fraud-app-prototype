@@ -1264,6 +1264,9 @@ textarea.input{height:auto;min-height:96px;padding:12px 16px;resize:none;font-si
 /* ============================================================
    SP2 英雄榜单 · 入口 + 榜单页
    ============================================================ */
+/* 榜单页：改为块级滚动容器，避免 flex 列压缩 100 行导致无法滚动 */
+.screen.heroboard{display:block}
+.screen.heroboard .hb-hero{flex:none}
 /* 守护者首页 · 英雄榜单入口 */
 .hero-board-entry{
   margin:10px 16px 0;display:flex;align-items:center;gap:12px;width:calc(100% - 32px);

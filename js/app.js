@@ -1435,7 +1435,7 @@ SCREENS.heroboard = {
   html(params) {
     const kind = params.kind || 'total';
     return `
-    <div class="screen">
+    <div class="screen heroboard">
       <div class="hb-hero">
         <div class="hb-nav">
           <button class="hb-back" data-back>${ic('i-left')}</button>
