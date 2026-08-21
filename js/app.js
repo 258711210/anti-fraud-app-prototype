@@ -9,7 +9,7 @@ const S = {
   loginTab: 'onekey',
   seeker: { name: '勇敢的小熊 8253', points: 260, avatar: '', nickModifiedAt: 0 },
   guard: {
-    authed: false, name: '李守护者', level: 3, helps: 68, score: 4.6,
+    authed: false, name: '李守护者', level: 3, helps: 68, monthHelps: 5, score: 4.6,
     credit: 82, points: 1280, online: false, avatar: '', nickModifiedAt: 0,
     tags: ['冒充客服退款类', '网络刷单类', '冒充公检法类'],
     badges: [
@@ -1240,6 +1240,14 @@ SCREENS.guard = {
         <button class="mini-card" data-g="level"><div class="mc-top" style="color:var(--gold)">${ic('i-medal')}我的等级</div><b>L${g.level} ${lv.name}</b><div class="mc-extra">积分加成 ${lv.ratio}，升级进度 ${Math.min(100, Math.round(g.helps / LEVELS[g.level].helps * 100))}%</div></button>
         <button class="mini-card" data-g="records"><div class="mc-top" style="color:var(--orange-d)">${ic('i-doc')}守护记录</div><b>${g.helps} 次服务</b><div class="mc-extra">查看全部服务与评价</div></button>
       </div>
+      <div class="hero-board-entry" data-g="heroboard">
+        <div class="hbe-icon">${ic('i-crown')}</div>
+        <div class="hbe-info">
+          <div class="hbe-title">英雄榜单<span class="hbe-tag">TOP 100</span></div>
+          <div class="hbe-sub">按守护次数排名 · 我排第 ${heroRankOf('total')} 名</div>
+        </div>
+        ${ic('i-right', 'hbe-arrow')}
+      </div>
       <button class="badge-entry" data-g="badge-game">
         <div class="be-icon">${ic('i-medal')}</div>
         <div class="be-info">
@@ -1333,6 +1341,137 @@ function showIncomingOrder() {
     go('call', { as: 'guard' });
   };
 }
+
+/* ============ 英雄榜单（SP2 第8章） ============ */
+/* 合并当前用户与其他守护者，按维度排序并标注名次（并列同一名次，下一名次顺延） */
+function heroBoardAll(kind) {
+  const g = S.guard;
+  const me = {
+    id: 'me', me: true, name: g.name, avatar: g.avatar,
+    total: g.helps, month: g.monthHelps, lv: g.level,
+    medals: (g.badges || []).filter(b => b.earned).length,
+  };
+  const all = [me, ...HERO_BOARD];
+  all.sort((a, b) => (b[kind] - a[kind]) || (a.id === 'me' ? -1 : 0));
+  let prev = null, rank = 0;
+  all.forEach((x, i) => {
+    if (x[kind] !== prev) { rank = i + 1; prev = x[kind]; }
+    x.rank = rank;
+  });
+  return { all, me };
+}
+function heroRankOf(kind) {
+  return heroBoardAll(kind).me.rank;
+}
+
+function hbAvatar(u, size) {
+  if (u.avatar) return `<div class="hb-avatar" style="width:${size}px;height:${size}px"><img src="${u.avatar}" alt=""></div>`;
+  const first = (u.name || '?').trim().charAt(0) || '守';
+  return `<div class="hb-avatar hb-avatar-def" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.42)}px">${first}</div>`;
+}
+function hbLv(lv) {
+  return `<span class="hb-lv lv-${lv}">L${lv}</span>`;
+}
+function hbMedals(n) {
+  return `<span class="hb-medals">${ic('i-medal')}<b>${n}</b></span>`;
+}
+
+function buildPodium(top3, kind) {
+  if (!top3.length) return '';
+  const cfg = {
+    1: { cls: 'p1', icon: 'i-crown', label: '冠军' },
+    2: { cls: 'p2', icon: 'i-trophy', label: '亚军' },
+    3: { cls: 'p3', icon: 'i-trophy', label: '季军' },
+  };
+  const card = (x, place) => {
+    const c = cfg[place];
+    return `
+      <div class="hb-podium-card ${c.cls}">
+        <div class="hb-pc-place">${c.label}</div>
+        <div class="hb-pc-badge">${ic(c.icon)}</div>
+        ${hbAvatar(x, place === 1 ? 62 : 52)}
+        <div class="hb-pc-name">${esc(x.name)}</div>
+        <div class="hb-pc-meta">${hbLv(x.lv)}${hbMedals(x.medals)}</div>
+        <div class="hb-pc-helps"><b>${x[kind]}</b> 次守护</div>
+      </div>`;
+  };
+  /* 视觉顺序：亚军 / 冠军 / 季军 */
+  return card(top3[1], 2) + card(top3[0], 1) + card(top3[2], 3);
+}
+
+function hbRow(x, kind) {
+  const isMe = !!x.me;
+  const rankCell = x.rank <= 3
+    ? `<span class="hb-rank-icon rk-${x.rank}">${ic(x.rank === 1 ? 'i-trophy' : 'i-medal')}</span>`
+    : `<span class="hb-rank-num">${x.rank}</span>`;
+  return `
+    <div class="hb-row ${x.rank <= 3 ? 'top' : ''} ${isMe ? 'me' : ''}">
+      <div class="hb-rank">${rankCell}</div>
+      ${hbAvatar(x, 42)}
+      <div class="hb-row-info">
+        <div class="hb-row-name">${esc(x.name)}${isMe ? '<span class="hb-me-tag">我</span>' : ''}</div>
+        <div class="hb-row-meta">${hbLv(x.lv)}${hbMedals(x.medals)}</div>
+      </div>
+      <div class="hb-row-helps"><b>${x[kind]}</b></div>
+    </div>`;
+}
+
+function renderHeroBoard(kind) {
+  const { all, me } = heroBoardAll(kind);
+  $('#hbPodium').innerHTML = buildPodium(all.slice(0, 3), kind);
+  $('#hbList').innerHTML = all.slice(0, 100).map(x => hbRow(x, kind)).join('');
+  $('#hbMyRank').innerHTML = (me.rank > 100 && S.role === 'guardian')
+    ? `<div class="hb-myrank">
+         <span class="hmr-label">我的排名</span>
+         <b class="hmr-rank">第 ${me.rank} 名</b>
+         <span class="hmr-sep">·</span>
+         <span class="hmr-count">守护 ${me[kind]} 次</span>
+         <span class="hmr-hint">进入 Top 100 即可上榜</span>
+       </div>`
+    : '';
+}
+
+SCREENS.heroboard = {
+  html(params) {
+    const kind = params.kind || 'total';
+    return `
+    <div class="screen">
+      <div class="hb-hero">
+        <div class="hb-nav">
+          <button class="hb-back" data-back>${ic('i-left')}</button>
+          <span class="hb-nav-title">英雄榜单</span>
+          <span class="hb-nav-spacer"></span>
+        </div>
+        <div class="hb-desc">${ic('i-shield')}按守护次数排名，致敬每一位守护者</div>
+        <div class="hb-update" id="hbUpdate">${ic('i-clock')}${HERO_BOARD_UPDATE[kind]}</div>
+        <div class="hb-tabs" id="hbTabs">
+          <button class="hb-tab ${kind === 'total' ? 'on' : ''}" data-kind="total">总榜</button>
+          <button class="hb-tab ${kind === 'month' ? 'on' : ''}" data-kind="month">月榜</button>
+        </div>
+      </div>
+      <div id="hbPodium" class="hb-podium"></div>
+      <div class="hb-list-title">
+        <span>Top 100 完整榜单</span>
+        <span id="hbListHint">${kind === 'total' ? '累计守护' : '本月守护'}次数</span>
+      </div>
+      <div id="hbList" class="hb-list"></div>
+      <div id="hbMyRank"></div>
+      <div class="hb-foot-note">榜单数据每日快照更新，仅展示公开昵称与守护次数</div>
+    </div>`;
+  },
+  mount(params) {
+    bindBack(app);
+    const kind = params.kind || 'total';
+    const paint = k => {
+      app.querySelectorAll('#hbTabs .hb-tab').forEach(t => t.classList.toggle('on', t.dataset.kind === k));
+      const upd = $('#hbUpdate'); if (upd) upd.innerHTML = `${ic('i-clock')}${HERO_BOARD_UPDATE[k]}`;
+      const hint = $('#hbListHint'); if (hint) hint.textContent = (k === 'total' ? '累计守护' : '本月守护') + '次数';
+      renderHeroBoard(k);
+    };
+    paint(kind);
+    app.querySelectorAll('#hbTabs .hb-tab').forEach(t => t.onclick = () => paint(t.dataset.kind));
+  }
+};
 
 /* ============ 14. 等级体系 ============ */
 SCREENS.level = {

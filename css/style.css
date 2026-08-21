@@ -1260,3 +1260,155 @@ textarea.input{height:auto;min-height:96px;padding:12px 16px;resize:none;font-si
 .ep-lock .ic{width:14px;height:14px;flex:none}
 #saveNickBtn{margin-top:14px}
 .ep-privacy p{font-size:var(--fs-xs);color:var(--ink-3);line-height:1.7;align-self:flex-start}
+
+/* ============================================================
+   SP2 英雄榜单 · 入口 + 榜单页
+   ============================================================ */
+/* 守护者首页 · 英雄榜单入口 */
+.hero-board-entry{
+  margin:10px 16px 0;display:flex;align-items:center;gap:12px;width:calc(100% - 32px);
+  min-height:72px;box-sizing:border-box;cursor:pointer;-webkit-tap-highlight-color:transparent;
+  background:linear-gradient(135deg,#1E3A5F,#16304E);border-radius:var(--r-lg);padding:14px 16px;
+  text-align:left;transition:var(--tr);color:#fff;position:relative;overflow:hidden;
+  box-shadow:0 6px 16px rgba(20,40,70,.18);
+}
+.hero-board-entry::after{
+  content:"";position:absolute;right:-40px;top:-40px;width:120px;height:120px;border-radius:50%;
+  background:radial-gradient(circle,rgba(232,181,74,.28),transparent 70%);
+}
+.hero-board-entry:active{transform:scale(.98)}
+.hbe-icon{
+  width:46px;height:46px;border-radius:14px;flex:none;
+  background:linear-gradient(135deg,#E8B54A,#B8860B);color:#fff;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 6px 14px rgba(184,134,11,.35);
+}
+.hbe-icon .ic{width:26px;height:26px}
+.hbe-info{flex:1;min-width:0;position:relative;z-index:1}
+.hbe-title{font-size:var(--fs-base);font-weight:700;color:#fff;display:flex;align-items:center;gap:8px}
+.hbe-tag{font-size:10px;font-weight:800;color:#5C430A;background:linear-gradient(135deg,#F5D67B,#D9A93C);border-radius:999px;padding:2px 8px;letter-spacing:.5px}
+.hbe-sub{font-size:var(--fs-xs);color:rgba(255,255,255,.72);margin-top:3px}
+.hbe-arrow{color:rgba(255,255,255,.7);width:20px;height:20px;flex:none;position:relative;z-index:1}
+
+/* 榜单页顶部 */
+.hb-hero{
+  background:linear-gradient(160deg,#1E3A5F,#16304E 60%,#0F2440);
+  color:#fff;flex:none;padding:8px 16px 18px;position:relative;overflow:hidden;
+}
+.hb-hero::after{
+  content:"";position:absolute;right:-60px;top:-60px;width:190px;height:190px;border-radius:50%;
+  background:radial-gradient(circle,rgba(232,181,74,.22),transparent 70%);
+}
+.hb-nav{display:flex;align-items:center;gap:8px;position:relative;z-index:1}
+.hb-back{
+  width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;transition:var(--tr);
+}
+.hb-back:active{background:rgba(255,255,255,.14)}
+.hb-nav-title{font-size:var(--fs-lg);font-weight:700;flex:1;text-align:center}
+.hb-nav-spacer{width:38px;flex:none}
+.hb-desc{display:flex;align-items:center;justify-content:center;gap:6px;font-size:var(--fs-sm);opacity:.85;margin-top:8px;position:relative;z-index:1}
+.hb-desc .ic{width:15px;height:15px;color:#E8B54A}
+.hb-update{display:flex;align-items:center;justify-content:center;gap:5px;font-size:var(--fs-xs);opacity:.6;margin-top:5px;position:relative;z-index:1}
+.hb-update .ic{width:13px;height:13px}
+.hb-tabs{
+  display:flex;background:rgba(255,255,255,.12);border-radius:999px;padding:4px;margin:16px 26px 0;position:relative;z-index:1;
+}
+.hb-tab{
+  flex:1;height:38px;border-radius:999px;font-size:var(--fs-md);font-weight:600;color:rgba(255,255,255,.75);transition:var(--tr);
+}
+.hb-tab.on{background:linear-gradient(135deg,#E8B54A,#C8941B);color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+
+/* 前三名荣誉区 */
+.hb-podium{display:flex;align-items:flex-end;justify-content:center;gap:10px;padding:18px 16px 4px}
+.hb-podium-card{
+  flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;
+  background:var(--card);border-radius:var(--r-lg);padding:14px 8px 14px;box-shadow:var(--sh-md);
+  position:relative;border:2px solid transparent;transition:var(--tr);
+}
+.hb-podium-card.p1{flex:1.28;padding-top:20px;transform:translateY(-8px)}
+.hb-podium-card.p1{border-color:#E8B54A;background:linear-gradient(180deg,#FFFBF0,#FFF3D6)}
+.hb-podium-card.p2{border-color:#B8C2CF;background:linear-gradient(180deg,#F8FAFC,#EDF1F6)}
+.hb-podium-card.p3{border-color:#D9A978;background:linear-gradient(180deg,#FCF3EB,#F7E8D8)}
+.hb-pc-place{
+  position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;color:#fff;
+  padding:2px 12px;border-radius:999px;letter-spacing:1px;
+}
+.hb-podium-card.p1 .hb-pc-place{background:linear-gradient(135deg,#E8B54A,#B8860B)}
+.hb-podium-card.p2 .hb-pc-place{background:linear-gradient(135deg,#A6B2C1,#6E7A88)}
+.hb-podium-card.p3 .hb-pc-place{background:linear-gradient(135deg,#D9A978,#B5793F)}
+.hb-pc-badge{
+  width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:8px;
+}
+.hb-pc-badge .ic{width:20px;height:20px}
+.hb-podium-card.p1 .hb-pc-badge{background:linear-gradient(135deg,#E8B54A,#B8860B);color:#fff}
+.hb-podium-card.p2 .hb-pc-badge{background:linear-gradient(135deg,#C6CFDA,#8E9AA8);color:#fff}
+.hb-podium-card.p3 .hb-pc-badge{background:linear-gradient(135deg,#D9A978,#B5793F);color:#fff}
+.hb-pc-name{font-size:var(--fs-md);font-weight:700;color:var(--ink);margin-top:8px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hb-pc-meta{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:6px}
+.hb-pc-helps{font-size:var(--fs-xs);color:var(--ink-3);margin-top:8px}
+.hb-pc-helps b{font-size:var(--fs-lg);color:var(--gold);font-weight:800;margin-right:2px;font-variant-numeric:tabular-nums}
+
+/* 头像 / 等级 / 勋章 */
+.hb-avatar{
+  position:relative;border-radius:50%;flex:none;overflow:hidden;background:var(--line-2);
+  box-shadow:0 2px 6px rgba(20,40,70,.14);
+}
+.hb-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.hb-avatar-def{
+  display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;
+  background:linear-gradient(135deg,#185FA5,#0F6E56);
+}
+.hb-lv{
+  display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;
+  padding:1px 6px;border-radius:6px;letter-spacing:.5px;line-height:1.5;
+}
+.hb-lv.lv-1{background:#9AA4B2}
+.hb-lv.lv-2{background:#0F6E56}
+.hb-lv.lv-3{background:#185FA5}
+.hb-lv.lv-4{background:#6C5CE7}
+.hb-lv.lv-5{background:linear-gradient(135deg,#E8B54A,#B8860B)}
+.hb-medals{display:inline-flex;align-items:center;gap:2px;font-size:11px;color:var(--gold);font-weight:700}
+.hb-medals .ic{width:13px;height:13px}
+.hb-medals b{font-variant-numeric:tabular-nums}
+
+/* 榜单列表 */
+.hb-list-title{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 16px 8px;font-size:var(--fs-md);font-weight:700;color:var(--ink);
+}
+.hb-list-title span:last-child{font-size:var(--fs-xs);font-weight:500;color:var(--ink-4)}
+.hb-list{background:var(--card);border-radius:var(--r-lg);margin:0 16px;overflow:hidden;box-shadow:var(--sh-sm)}
+.hb-row{
+  display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line-2);transition:var(--tr);position:relative;
+}
+.hb-row:last-child{border-bottom:none}
+.hb-row.top{background:linear-gradient(90deg,#FFF9EC,transparent 60%)}
+.hb-row.me{background:var(--blue-xl)}
+.hb-row.me::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--blue)}
+.hb-rank{width:32px;flex:none;display:flex;align-items:center;justify-content:center;text-align:center}
+.hb-rank-num{font-size:var(--fs-md);font-weight:700;color:var(--ink-4);font-variant-numeric:tabular-nums}
+.hb-rank-icon{display:flex;align-items:center;justify-content:center}
+.hb-rank-icon .ic{width:20px;height:20px}
+.hb-rank-icon.rk-1{color:#E8B54A}
+.hb-rank-icon.rk-2{color:#8E9AA8}
+.hb-rank-icon.rk-3{color:#D9A978}
+.hb-row-info{flex:1;min-width:0}
+.hb-row-name{font-size:var(--fs-base);font-weight:600;color:var(--ink);display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hb-me-tag{flex:none;font-size:10px;font-weight:700;color:#fff;background:var(--blue);border-radius:4px;padding:1px 5px}
+.hb-row-meta{display:flex;align-items:center;gap:6px;margin-top:3px}
+.hb-row-helps{flex:none;text-align:right;line-height:1.2;min-width:34px}
+.hb-row-helps b{font-size:18px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+
+/* 我的排名（未进 Top100 时底部展示） */
+.hb-myrank{
+  position:sticky;bottom:0;z-index:5;margin:16px 16px 0;
+  background:var(--card);border-radius:var(--r-lg);padding:13px 14px;box-shadow:var(--sh-md);
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;border:1.5px solid var(--blue-l);
+}
+.hmr-label{font-size:var(--fs-sm);color:var(--ink-3);font-weight:500;white-space:nowrap}
+.hmr-rank{font-size:var(--fs-base);font-weight:800;color:var(--blue);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hmr-sep{color:var(--ink-4)}
+.hmr-count{font-size:var(--fs-sm);color:var(--ink-2);font-weight:600;white-space:nowrap}
+.hmr-hint{margin-left:auto;font-size:var(--fs-xs);color:var(--ink-4);white-space:nowrap}
+.hb-foot-note{
+  margin:16px 16px 24px;padding-top:12px;text-align:center;font-size:var(--fs-xs);color:var(--ink-4);line-height:1.6;
+}

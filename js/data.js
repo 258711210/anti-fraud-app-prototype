@@ -256,3 +256,34 @@ const SEEKER_CAPTIONS = [
   '原来是这样，多亏有您在，我差点就信了。',
   '谢谢守护者，我这就挂断骗子的电话，去报警。',
 ];
+
+/* ============================================================
+   英雄榜单（SP2 第8章）模拟数据
+   排名依据：守护数量 = 成功完成守护服务的次数
+   ============================================================ */
+
+/* 榜单更新时间（总榜每日凌晨 / 月榜每小时，原型用固定文案模拟） */
+const HERO_BOARD_UPDATE = {
+  total: '今天 04:00 更新',
+  month: '今天 15:00 更新',
+};
+
+/* 生成 160 位"其他守护者"（含总榜 total / 月榜 month 两套守护数量）。
+   与当前用户合并后计算排名，展示时仅取 Top100。 */
+const HERO_SURNAMES = ['李','王','张','刘','陈','杨','赵','黄','周','吴','徐','孙','胡','朱','高','林','何','郭','马','罗','梁','宋','郑','谢'];
+const HERO_GIVENS = ['师傅','老师','阿姨','大姐','大哥','同志','卫士','先锋','暖心','阳光','清风','灯塔','明灯','诚信','安心','守护'];
+
+function buildHeroBoard() {
+  const list = [];
+  for (let i = 0; i < 160; i++) {
+    const t = i / 159;                                       // 0..1
+    const total = 15 + Math.round(485 * Math.pow(1 - t, 3)); // 500 → 15
+    const month = 2 + Math.round(160 * Math.pow(1 - t, 3));  // 162 → 2
+    const lv = total >= 300 ? 5 : total >= 150 ? 4 : total >= 60 ? 3 : total >= 20 ? 2 : 1;
+    const medals = Math.min(10, Math.max(0, Math.floor((total - 15) / 45)));
+    const name = HERO_SURNAMES[i % HERO_SURNAMES.length] + HERO_GIVENS[(i * 7 + 3) % HERO_GIVENS.length];
+    list.push({ id: 'g' + (i + 1), name, total, month, lv, medals, avatar: '' });
+  }
+  return list;
+}
+const HERO_BOARD = buildHeroBoard();
