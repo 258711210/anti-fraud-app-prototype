@@ -38,6 +38,10 @@ const S = {
     { id: 'o2', no: 'SO20260721002', name: '《全民反诈手册》', icon: 'i-book', color: '#0B7285', points: 300, status: '已完成', time: '07-21 15:08' },
     { id: 'o3', no: 'SO20260712003', name: '守护者定制马克杯', icon: 'i-cup', color: '#B4610E', points: 600, status: '已取消', time: '07-12 09:41' },
     { id: 'o4', no: 'SO20260818004', name: '腾讯视频定制抱枕', icon: 'i-gift', color: '#6C5CE7', points: 300, status: '取消中', time: '08-18 10:05' },
+    { id: 'o5', no: 'SO20260820005', name: '守护者联名帆布包', icon: 'i-bag', color: '#0F6E56', points: 500, status: '待发货', time: '08-20 09:30' },
+    { id: 'o6', no: 'SO20260810006', name: '反诈定制手机壳', icon: 'i-phone', color: '#185FA5', points: 200, status: '退款中', time: '08-10 14:20',
+      refundNote: '已申请退款，商家将在 72 小时内审核，同意后积分原路退回' },
+    { id: 'o7', no: 'SO20260728007', name: '公益爱心文具套装', icon: 'i-doc', color: '#6C5CE7', points: 150, status: '已退款', time: '07-28 11:00' },
   ],
   msgs: JSON.parse(JSON.stringify(MESSAGES)),
   records: JSON.parse(JSON.stringify(HELP_RECORDS)),
@@ -1430,31 +1434,57 @@ SCREENS.mall = {
     const pts = S.role === 'guardian' ? S.guard.points : S.seeker.points;
     return `
     <div class="screen has-tab">
-      <div class="mall-hero">
-        <div class="mall-head">
-          <div class="mall-pts">
-            <span class="mp-label">可用积分</span>
-            <div class="mp-num">${fmt(pts)}<span class="mp-star">${ic('i-star')}</span></div>
-          </div>
-          <button class="btn-ghost-light" id="howEarn">${ic('i-help')}如何获取积分？</button>
+      <!-- 顶部：轻量标题栏，积分余额弱化为小胶囊（点击可看获取方式） -->
+      <div class="mall-top">
+        <div class="mall-head-row">
+          <div class="mall-title">积分商城</div>
+          <button class="mall-bal" id="howEarn" title="点击查看如何获取积分">${ic('i-star')}<b>${fmt(pts)}</b><span class="mb-label">可用</span></button>
         </div>
-        <button class="mall-orders" id="toOrders">${ic('i-gift')}兑换订单${ic('i-right')}</button>
+        <div class="mall-tool-row">
+          <span class="mall-slogan">${ic('i-shield')}反诈联名 · 正品保障</span>
+          <button class="mall-orders" id="toOrders">兑换订单${ic('i-right')}</button>
+        </div>
       </div>
-      <!-- SP2 精选店铺（商户/赞助商店铺入口） -->
+      <!-- SP2 精选店铺：突出商铺信息（banner 宣传位 / 简介 / 兑换数据） -->
       <div class="mall-shops">
         <div class="mall-sec-head">
           <span class="mall-sec-title">精选店铺</span>
           <span class="mall-sec-sub">${ic('i-shield')}反诈联名 · 正品保障</span>
         </div>
-        <div class="shop-strip">
-          ${SHOPS.map(s => `
-          <button class="shop-card" data-shop="${s.id}" style="--sc:${s.color}">
-            <span class="shop-logo" style="background:${s.color}">${s.logo ? `<img src="${s.logo}" alt="">` : s.name[0]}</span>
-            <span class="shop-nm">${s.name}</span>
-            <span class="shop-sub">${s.sub}</span>
-            <span class="shop-go">进店${ic('i-right')}</span>
-          </button>`).join('')}
+        <div class="shop-stack" id="sfStack">
+          ${SHOPS.map(s => {
+            const slide = (s.banners && s.banners[0]) || { icon: s.bannerIcon, color: s.bannerColor, slogan: s.slogan };
+            const count = PRODUCTS.filter(p => p.shopId === s.id).length;
+            return `
+          <div class="shop-feature" data-shop="${s.id}" role="button">
+            <div class="sf-inner">
+              <div class="sf-banner" style="background:${slide.color}">
+                <span class="sf-banner-icon">${ic(slide.icon)}</span>
+                <span class="sf-banner-txt">${slide.slogan}</span>
+                <span class="sf-enter">进店${ic('i-right')}</span>
+              </div>
+              <div class="sf-body">
+                <span class="sf-logo" style="background:${s.color}">${s.logo ? `<img src="${s.logo}" alt="">` : s.name[0]}</span>
+                <div class="sf-info">
+                  <div class="sf-name">${s.name}<span class="shop-head-tag">赞助商</span></div>
+                  <div class="sf-sub">${s.sub}</div>
+                  <div class="sf-intro">${s.intro}</div>
+                </div>
+              </div>
+              <div class="sf-foot">
+                <span class="sf-ex">${ic('i-star')}${s.exchange}人兑换</span>
+                <span>${ic('i-gift')}${count}件在售</span>
+                <span class="sf-go">进入店铺${ic('i-right')}</span>
+              </div>
+            </div>
+          </div>`;
+          }).join('')}
         </div>
+        ${SHOPS.length > 1 ? `<div class="shop-car-dots" id="sfDots">${SHOPS.map((_, i) => `<span class="sf-dot ${i === 0 ? 'on' : ''}" data-sf-dot="${i}"></span>`).join('')}</div>` : ''}
+      </div>
+      <div class="mall-sec-head mall-prod-head">
+        <span class="mall-sec-title">全部商品</span>
+        <span class="mall-sec-sub">${PRODUCTS.length} 件 · 平台自营 + 品牌赞助</span>
       </div>
       <div class="prod-grid">
         ${PRODUCTS.map(p => {
@@ -1498,6 +1528,44 @@ SCREENS.mall = {
       curShop = SHOPS.find(s => s.id === b.dataset.goshop);
       go('shop');
     });
+    /* SP2 精选店铺：堆叠卡片切换（deck 效果） */
+    const sfStack = $('#sfStack');
+    const sfCards = app.querySelectorAll('#sfStack .shop-feature');
+    const sfDots = app.querySelectorAll('[data-sf-dot]');
+    if (sfStack && sfCards.length) {
+      const sfN = sfCards.length;
+      let sfIdx = 0, sfIv = null;
+      const goSf = i => {
+        sfIdx = (i + sfN) % sfN;
+        sfCards.forEach((card, k) => {
+          const depth = (k - sfIdx + sfN) % sfN;
+          let tx = 0, ty = 0, sc = 1, op = 1, zi = sfN, pe = 'none';
+          if (depth === 0) { tx = 0; ty = 0; sc = 1; op = 1; zi = sfN; pe = 'auto'; }
+          else if (depth === 1) { tx = 52; ty = 0; sc = 0.9; op = 1; zi = sfN - 1; }
+          else if (depth === sfN - 1) { tx = -52; ty = 0; sc = 0.9; op = 1; zi = sfN - 1; }
+          else { tx = depth < sfN / 2 ? 52 : -52; ty = 0; sc = 0.9; op = 0; zi = 1; }
+          card.style.transform = `translate(${tx}px,${ty}px) scale(${sc})`;
+          card.style.opacity = op;
+          card.style.zIndex = zi;
+          card.style.pointerEvents = pe;
+        });
+        sfDots.forEach((d, k) => d.classList.toggle('on', k === sfIdx));
+        const front = sfCards[sfIdx];
+        if (front) sfStack.style.height = (front.offsetHeight + 12) + 'px';
+      };
+      const startSf = () => { stopSf(); sfIv = every(() => goSf(sfIdx + 1), 3500); };
+      const stopSf = () => { if (sfIv) { clearInterval(sfIv); sfIv = null; } };
+      goSf(0); startSf();
+      sfDots.forEach((d, i) => { d.onclick = () => { goSf(i); startSf(); }; });
+      /* 触摸滑动切换（左右滑动换卡） */
+      let sfStartX = 0;
+      sfStack.addEventListener('touchstart', e => { sfStartX = e.touches[0].clientX; stopSf(); }, { passive: true });
+      sfStack.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - sfStartX;
+        if (Math.abs(dx) > 40) goSf(sfIdx + (dx < 0 ? 1 : -1));
+        startSf();
+      }, { passive: true });
+    }
     /* 卡片内直接兑换 */
     app.querySelectorAll('[data-buy]').forEach(b => b.onclick = e => {
       e.stopPropagation();
@@ -1710,14 +1778,25 @@ SCREENS.shop = {
     if (!s) return `<div class="screen">${navbar('店铺')}<div class="empty">店铺不存在</div></div>`;
     const pts = S.role === 'guardian' ? S.guard.points : S.seeker.points;
     const shopProducts = PRODUCTS.filter(p => p.shopId === s.id);
+    const slides = s.banners && s.banners.length
+      ? s.banners
+      : [{ icon: s.bannerIcon, color: s.bannerColor, slogan: s.slogan }];
     return `
     <div class="screen">
       ${navbar('', { cls: 'transparent' })}
-      <div class="shop-banner" style="background:${s.bannerColor}">
-        <div class="shop-banner-inner">
-          <span class="shop-banner-icon">${ic(s.bannerIcon)}</span>
-          <span class="shop-banner-txt">${s.slogan}</span>
+      <div class="shop-banner">
+        <div class="shop-banner-track" id="sbTrack">
+          ${slides.map(b => `
+            <div class="shop-slide" style="background:${b.color}">
+              <div class="shop-banner-inner">
+                <span class="shop-banner-icon">${ic(b.icon)}</span>
+                <span class="shop-banner-txt">${b.slogan}</span>
+              </div>
+            </div>`).join('')}
         </div>
+        ${slides.length > 1 ? `<div class="shop-banner-dots" id="sbDots">
+          ${slides.map((_, i) => `<span class="sb-dot ${i === 0 ? 'on' : ''}" data-dot="${i}"></span>`).join('')}
+        </div>` : ''}
       </div>
       <div class="shop-body">
         <div class="shop-head-card">
@@ -1727,7 +1806,6 @@ SCREENS.shop = {
             <div class="shop-head-sub">${s.sub}</div>
             <div class="shop-head-meta">${s.exchange}人兑换过本店商品</div>
           </div>
-          <span class="shop-head-ex">${ic('i-star')}${s.exchange}</span>
         </div>
         ${s.intro ? `<p class="shop-intro">${s.intro}</p>` : ''}
         <div class="shop-info-grid">
@@ -1783,15 +1861,38 @@ SCREENS.shop = {
       if (pts < p.points) return toast(`积分不足，还差 ${fmt(p.points - pts)} 积分`, 'i-alert');
       showAddrSheet(p);
     });
+
+    /* SP2 商铺主页 banner 轮播 */
+    const sbSlides = s.banners && s.banners.length ? s.banners : [{ icon: s.bannerIcon, color: s.bannerColor, slogan: s.slogan }];
+    const sbTrack = $('#sbTrack');
+    const sbDots = app.querySelectorAll('[data-dot]');
+    if (sbTrack && sbSlides.length > 1) {
+      let sbIndex = 0;
+      const sbN = sbSlides.length;
+      const goSb = i => {
+        sbIndex = (i + sbN) % sbN;
+        sbTrack.style.transform = `translateX(-${sbIndex * 100}%)`;
+        sbDots.forEach((d, idx) => d.classList.toggle('on', idx === sbIndex));
+      };
+      every(() => goSb(sbIndex + 1), 3000);
+      sbDots.forEach((d, i) => { d.onclick = () => goSb(i); });
+      /* 触摸滑动切换 */
+      let sbStartX = 0;
+      sbTrack.addEventListener('touchstart', e => { sbStartX = e.touches[0].clientX; }, { passive: true });
+      sbTrack.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - sbStartX;
+        if (Math.abs(dx) > 40) goSb(sbIndex + (dx < 0 ? 1 : -1));
+      }, { passive: true });
+    }
   }
 };
 
 /* ============ 19. 兑换订单 ============ */
 SCREENS.orders = {
   html() {
-    const tabs = ['全部', '待发货', '取消中', '已发货', '已完成', '已取消'];
+    const tabs = ['全部', '待发货', '取消中', '已发货', '已完成', '退款中', '已退款', '已取消'];
     const list = S.orders.filter(o => S.orderTab === '全部' || o.status === S.orderTab);
-    const colorOf = s => ({ '待发货': 'tag-orange', '取消中': 'tag-red', '已发货': 'tag-blue', '已完成': 'tag-green', '已取消': 'tag-gray' }[s]);
+    const colorOf = s => ({ '待发货': 'tag-orange', '取消中': 'tag-red', '已发货': 'tag-blue', '已完成': 'tag-green', '退款中': 'tag-gold', '已退款': 'tag-gray', '已取消': 'tag-gray' }[s]);
     return `
     <div class="screen">
       ${navbar('兑换订单')}
@@ -1809,12 +1910,14 @@ SCREENS.orders = {
                 <div style="font-size:var(--fs-xs);color:var(--ink-4);margin-top:5px">下单时间 ${o.time}</div>
                 <div style="color:var(--gold);font-weight:700;margin-top:6px;font-size:var(--fs-md)">${fmt(o.points)} 积分</div>
                 ${o.status === '取消中' ? `<div style="font-size:var(--fs-xs);color:var(--red);margin-top:4px">已申请取消，商家 48 小时内处理</div>` : ''}
+                ${o.status === '退款中' ? `<div style="font-size:var(--fs-xs);color:var(--orange-d);margin-top:4px">${o.refundNote || '已申请退款，商家 72 小时内审核'}</div>` : ''}
               </div>
             </div>
             <div class="oc-foot">
               ${o.status === '已发货' ? `<button class="btn btn-sm btn-ghost" data-logi="${o.id}">${ic('i-truck')}查看物流</button><button class="btn btn-sm btn-primary" data-recv="${o.id}">确认收货</button>` : ''}
               ${o.status === '待发货' ? `<button class="btn btn-sm btn-plain" data-cancel="${o.id}">申请取消</button>` : ''}
               ${o.status === '取消中' ? `<button class="btn btn-sm btn-ghost" data-cancelback="${o.id}">撤销申请</button>` : ''}
+              ${o.status === '退款中' ? `<button class="btn btn-sm btn-ghost" data-refundback="${o.id}">撤销退款</button>` : ''}
             </div>
           </div>`).join('')
         : `<div class="empty">${ic('i-doc')}<p>暂无相关订单</p></div>`}
@@ -1824,14 +1927,28 @@ SCREENS.orders = {
   mount() {
     bindBack(app);
     app.querySelectorAll('[data-ot]').forEach(b => b.onclick = () => { S.orderTab = b.dataset.ot; render('orders'); });
-    /* SP2 申请取消（待发货 → 取消中，商家处理后积分退回） */
+    /* 待发货 申请取消订单（弹窗填写原因，选填） */
     app.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => {
       const o = S.orders.find(x => x.id === b.dataset.cancel);
-      confirmDlg('申请取消订单', '取消申请已提交，商家将在 48 小时内处理。\n同意后积分将原路退回您的账户。', '确认申请', () => {
+      const m = openModal(`
+        <div class="dialog">
+          <h3>申请取消订单</h3>
+          <div class="d-sub" style="text-align:left;margin-bottom:14px">取消申请已提交，商家将在 48 小时内处理，<br>同意后积分将原路退回您的账户。</div>
+          <textarea class="input cancel-reason" id="cancelReason" rows="3" placeholder="请填写取消原因（选填）"></textarea>
+          <div class="d-btns">
+            <button class="btn btn-plain" data-x>再想想</button>
+            <button class="btn btn-danger" data-ok>确认申请</button>
+          </div>
+        </div>`);
+      m.querySelector('[data-x]').onclick = () => closeModal(m);
+      m.querySelector('[data-ok]').onclick = () => {
+        const reason = (m.querySelector('#cancelReason').value || '').trim();
         o.status = '取消中';
+        o.cancelReason = reason;
+        closeModal(m);
         toast('已提交取消申请，等待商家处理', 'i-check');
         render('orders');
-      }, true);
+      };
     });
     /* 撤销取消申请 */
     app.querySelectorAll('[data-cancelback]').forEach(b => b.onclick = () => {
@@ -1839,6 +1956,16 @@ SCREENS.orders = {
       confirmDlg('撤销取消申请', '确定撤销本次取消申请？订单将恢复为待发货状态。', '确认撤销', () => {
         o.status = '待发货';
         toast('已撤销取消申请', 'i-check');
+        render('orders');
+      }, true);
+    });
+    /* 撤销退款申请 */
+    app.querySelectorAll('[data-refundback]').forEach(b => b.onclick = () => {
+      const o = S.orders.find(x => x.id === b.dataset.refundback);
+      confirmDlg('撤销退款申请', '确定撤销本次退款申请？订单将恢复为已完成状态。', '确认撤销', () => {
+        o.status = '已完成';
+        delete o.refundNote;
+        toast('已撤销退款申请', 'i-check');
         render('orders');
       }, true);
     });
