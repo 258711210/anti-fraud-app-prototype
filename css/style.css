@@ -1205,6 +1205,10 @@ textarea.input{height:auto;min-height:96px;padding:12px 16px;resize:none;font-si
 .shop-info-item{display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:var(--ink-2)}
 .shop-info-item .ic{width:15px;height:15px;color:var(--ink-4);flex:none}
 .shop-info-item span{flex:1;min-width:0}
+.shop-contact{cursor:pointer}
+.shop-contact:active{opacity:.55}
+.shop-contact .ic{color:#185FA5}
+.shop-tel{margin-left:auto;flex:none;color:#185FA5;font-weight:600}
 .shop-links{display:flex;align-items:center;gap:8px}
 .shop-links .sp-shop{flex:none}
 .shop-links-txt{font-size:11px;color:var(--ink-4)}

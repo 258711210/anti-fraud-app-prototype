@@ -9,7 +9,7 @@ const S = {
   loginTab: 'onekey',
   seeker: { name: '勇敢的小熊 8253', points: 260, avatar: '', nickModifiedAt: 0 },
   guard: {
-    authed: false, name: '李守护者', level: 3, helps: 68, monthHelps: 5, score: 4.6,
+    authed: false, name: '李守护者', level: 3, helps: 68, monthHelps: 5, weekHelps: 2, score: 4.6,
     credit: 82, points: 1280, online: false, avatar: '', nickModifiedAt: 0,
     tags: ['冒充客服退款类', '网络刷单类', '冒充公检法类'],
     badges: [
@@ -29,19 +29,14 @@ const S = {
   lastHelpTime: 0,                  // 上次发起求助的时间戳（频率限制：两次间隔≥60秒）
   addr: JSON.parse(JSON.stringify(DEFAULT_ADDR)),
   orders: [
-    { id: 'o1', no: 'SO20260803001', name: '反诈宣传定制雨伞', icon: 'i-umbrella', color: '#185FA5', points: 800, status: '已发货', time: '08-03 10:22',
-      logistics: [
-        { t: '今天 09:12', d: '【北京市】快件已到达朝阳幸福里营业点，派送员正在派送' },
-        { t: '昨天 18:40', d: '【北京市】快件到达北京转运中心' },
-        { t: '08-03 10:30', d: '【杭州市】商家已发货，顺丰速运 SF1386688992' },
-      ] },
-    { id: 'o2', no: 'SO20260721002', name: '《全民反诈手册》', icon: 'i-book', color: '#0B7285', points: 300, status: '已完成', time: '07-21 15:08' },
-    { id: 'o3', no: 'SO20260712003', name: '守护者定制马克杯', icon: 'i-cup', color: '#B4610E', points: 600, status: '已取消', time: '07-12 09:41' },
-    { id: 'o4', no: 'SO20260818004', name: '腾讯视频定制抱枕', icon: 'i-gift', color: '#6C5CE7', points: 300, status: '取消中', time: '08-18 10:05' },
-    { id: 'o5', no: 'SO20260820005', name: '守护者联名帆布包', icon: 'i-bag', color: '#0F6E56', points: 500, status: '待发货', time: '08-20 09:30' },
+    { id: 'o1', no: 'SO20260821001', name: '反诈主题电子证书', icon: 'i-doc', color: '#185FA5', points: 50, status: '已发货', time: '08-21 10:22', needLogistics: false, address: '海南省海口市美兰区国兴大道 88 号反诈大厦 12 楼', phone: '138****8888', phoneFull: '13888888888' },
+    { id: 'o2', no: 'SO20260721002', name: '《全民反诈手册》', icon: 'i-book', color: '#0B7285', points: 300, status: '已完成', time: '07-21 15:08', needLogistics: true },
+    { id: 'o3', no: 'SO20260712003', name: '守护者定制马克杯', icon: 'i-cup', color: '#B4610E', points: 600, status: '已取消', time: '07-12 09:41', needLogistics: true },
+    { id: 'o4', no: 'SO20260818004', name: '腾讯视频定制抱枕', icon: 'i-gift', color: '#6C5CE7', points: 300, status: '取消中', time: '08-18 10:05', needLogistics: true },
+    { id: 'o5', no: 'SO20260820005', name: '守护者联名帆布包', icon: 'i-bag', color: '#0F6E56', points: 500, status: '待发货', time: '08-20 09:30', needLogistics: true },
     { id: 'o6', no: 'SO20260810006', name: '反诈定制手机壳', icon: 'i-phone', color: '#185FA5', points: 200, status: '退款中', time: '08-10 14:20',
-      refundNote: '已申请退款，商家将在 72 小时内审核，同意后积分原路退回' },
-    { id: 'o7', no: 'SO20260728007', name: '公益爱心文具套装', icon: 'i-doc', color: '#6C5CE7', points: 150, status: '已退款', time: '07-28 11:00' },
+      refundNote: '已申请退款，商家将在 72 小时内审核，同意后积分原路退回', needLogistics: true },
+    { id: 'o7', no: 'SO20260728007', name: '公益爱心文具套装', icon: 'i-doc', color: '#6C5CE7', points: 150, status: '已退款', time: '07-28 11:00', needLogistics: true },
   ],
   msgs: JSON.parse(JSON.stringify(MESSAGES)),
   records: JSON.parse(JSON.stringify(HELP_RECORDS)),
@@ -50,7 +45,7 @@ const S = {
   typeSearch: '',
   loginVia: 'wechat',              // 第三方登录方式：wechat / apple
   account: {
-    phone: '138****8888',          // 已绑定手机号
+    phone: '138****8888',          // 已绑定手机号（脱敏展示）
     wechat: true,                  // 微信绑定状态
     apple: false,                  // 苹果账号绑定状态
   },
@@ -795,6 +790,14 @@ SCREENS.home = {
         <div class="sos-note">${ic('i-shield')}平均 23 秒接通 · 全程免费 · 通话录音保障权益</div>
         <button class="sos-96110" id="home96110">${ic('i-phone')}拨打全国反诈电话 96110</button>
       </div>
+      <div class="hero-board-entry" data-g="heroboard">
+        <div class="hbe-icon">${ic('i-crown')}</div>
+        <div class="hbe-info">
+          <div class="hbe-title">英雄榜单<span class="hbe-tag">TOP 100</span></div>
+          <div class="hbe-sub">${S.role === 'guardian' ? `按守护次数排名 · 我排第 ${heroRankOf('total')} 名` : '按守护次数排名 · 致敬每一位守护者'}</div>
+        </div>
+        ${ic('i-right', 'hbe-arrow')}
+      </div>
       <div class="quick-grid">
         <button class="quick-item" data-q="records"><span class="qi" style="background:var(--blue-l);color:var(--blue)">${ic('i-doc')}</span>求助记录</button>
         <button class="quick-item" data-q="messages"><span class="qi" style="background:var(--red-l);color:var(--red)">${ic('i-msg')}</span>我的消息</button>
@@ -814,6 +817,7 @@ SCREENS.home = {
     app.querySelectorAll('[data-q]').forEach(b => b.onclick = () => {
       resetTo(b.dataset.q);
     });
+    app.querySelectorAll('[data-g]').forEach(b => b.onclick = () => go(b.dataset.g));
   }
 };
 
@@ -1348,10 +1352,11 @@ function heroBoardAll(kind) {
   const g = S.guard;
   const me = {
     id: 'me', me: true, name: g.name, avatar: g.avatar,
-    total: g.helps, month: g.monthHelps, lv: g.level,
+    total: g.helps, month: g.monthHelps, week: g.weekHelps, lv: g.level,
     medals: (g.badges || []).filter(b => b.earned).length,
   };
-  const all = [me, ...HERO_BOARD];
+  // 仅守护者本人参与排名；求助者以浏览视角查看，不计入榜单
+  const all = S.role === 'guardian' ? [me, ...HERO_BOARD] : [...HERO_BOARD];
   all.sort((a, b) => (b[kind] - a[kind]) || (a.id === 'me' ? -1 : 0));
   let prev = null, rank = 0;
   all.forEach((x, i) => {
@@ -1420,7 +1425,7 @@ function renderHeroBoard(kind) {
   const { all, me } = heroBoardAll(kind);
   $('#hbPodium').innerHTML = buildPodium(all.slice(0, 3), kind);
   $('#hbList').innerHTML = all.slice(0, 100).map(x => hbRow(x, kind)).join('');
-  $('#hbMyRank').innerHTML = (me.rank > 100 && S.role === 'guardian')
+  $('#hbMyRank').innerHTML = (S.role === 'guardian' && me.rank > 100)
     ? `<div class="hb-myrank">
          <span class="hmr-label">我的排名</span>
          <b class="hmr-rank">第 ${me.rank} 名</b>
@@ -1447,6 +1452,7 @@ SCREENS.heroboard = {
         <div class="hb-tabs" id="hbTabs">
           <button class="hb-tab ${kind === 'total' ? 'on' : ''}" data-kind="total">总榜</button>
           <button class="hb-tab ${kind === 'month' ? 'on' : ''}" data-kind="month">月榜</button>
+          <button class="hb-tab ${kind === 'week' ? 'on' : ''}" data-kind="week">周榜</button>
         </div>
       </div>
       <div id="hbPodium" class="hb-podium"></div>
@@ -1465,7 +1471,7 @@ SCREENS.heroboard = {
     const paint = k => {
       app.querySelectorAll('#hbTabs .hb-tab').forEach(t => t.classList.toggle('on', t.dataset.kind === k));
       const upd = $('#hbUpdate'); if (upd) upd.innerHTML = `${ic('i-clock')}${HERO_BOARD_UPDATE[k]}`;
-      const hint = $('#hbListHint'); if (hint) hint.textContent = (k === 'total' ? '累计守护' : '本月守护') + '次数';
+      const hint = $('#hbListHint'); if (hint) hint.textContent = (k === 'total' ? '累计守护' : k === 'month' ? '本月守护' : '本周守护') + '次数';
       renderHeroBoard(k);
     };
     paint(kind);
@@ -1773,7 +1779,7 @@ SCREENS.product = {
         </div>
         ${sp.address ? `<div class="sp-addr">${ic('i-loc')}<span>${sp.address}</span></div>` : ''}
         ${sp.intro ? `<p class="sp-intro">${sp.intro}</p>` : ''}
-        ${sp.phone ? `<button class="sp-phone" data-call="${sp.phone}">${ic('i-phone')}<span>联系商家 · ${sp.phone}</span></button>` : ''}
+        ${sp.servicePhone ? `<button class="sp-phone" data-call="${sp.servicePhone}">${ic('i-phone')}<span>联系客服 · ${sp.servicePhone}</span></button>` : ''}
         <button class="btn btn-primary btn-sm btn-block sp-enter" data-enter-shop="${p.shopId || ''}">${ic('i-bag')}进入店铺${ic('i-right')}</button>
       </div>
       ` : ''}
@@ -1872,6 +1878,7 @@ function showAddrSheet(p) {
 }
 
 function confirmExchange(p, addr) {
+  const maskPhone = v => (v || '').replace(/^(\d{3})\d{4}(\d{4})$/, '$1****$2');
   const m = openModal(`
     <div class="dialog">
       <div class="d-icon" style="background:var(--gold-l);color:var(--gold)">${ic('i-gift')}</div>
@@ -1891,9 +1898,12 @@ function confirmExchange(p, addr) {
     closeModal(m);
     if (S.role === 'guardian') S.guard.points -= p.points; else S.seeker.points -= p.points;
     p.stock -= 1;
+    const phone = addr ? maskPhone(addr.phone) : '';
+    const phoneFull = (addr && addr.phoneFull) || '';
     S.orders.unshift({
       id: 'o' + Date.now(), no: 'SO' + Date.now(), name: p.name, icon: p.icon, color: p.color,
       points: p.points, status: '待发货', time: '刚刚',
+      needLogistics: p.needLogistics !== false, phone, phoneFull, address: addr ? (addr.region + ' ' + addr.detail) : '',
     });
     const ok = openModal(`
       <div class="dialog">
@@ -1949,7 +1959,7 @@ SCREENS.shop = {
         ${s.intro ? `<p class="shop-intro">${s.intro}</p>` : ''}
         <div class="shop-info-grid">
           ${s.address ? `<div class="shop-info-item">${ic('i-loc')}<span>${s.address}</span></div>` : ''}
-          ${s.phone ? `<div class="shop-info-item">${ic('i-phone')}<span>${s.phone}</span></div>` : ''}
+          ${s.servicePhone ? `<div class="shop-info-item shop-contact" data-tel="${s.servicePhone}">${ic('i-phone')}<span>联系商户</span><span class="shop-tel">${s.servicePhone}</span></div>` : ''}
           <div class="shop-info-item shop-links">
             ${s.douyin ? `<button class="sp-shop" data-shop="douyin" data-url="${s.douyin}" title="抖音商铺">${ic('i-douyin')}</button>` : ''}
             ${s.kuaishou ? `<button class="sp-shop" data-shop="kuaishou" data-url="${s.kuaishou}" title="快手商铺">${ic('i-kuaishou')}</button>` : ''}
@@ -1991,6 +2001,7 @@ SCREENS.shop = {
       const name = b.dataset.shop === 'douyin' ? '抖音' : '快手';
       toast(`即将跳转到${name}商铺（原型演示）`, 'i-check');
     });
+    app.querySelectorAll('[data-tel]').forEach(b => b.onclick = () => toast(`正在呼叫 ${b.dataset.tel}（原型演示）`, 'i-phone'));
     app.querySelectorAll('[data-prod]').forEach(b => b.onclick = () => { curProduct = PRODUCTS.find(p => p.id === b.dataset.prod); go('product'); });
     app.querySelectorAll('[data-buy]').forEach(b => b.onclick = e => {
       e.stopPropagation();
@@ -2048,12 +2059,13 @@ SCREENS.orders = {
                 <div style="font-weight:600;font-size:var(--fs-md)">${o.name}</div>
                 <div style="font-size:var(--fs-xs);color:var(--ink-4);margin-top:5px">下单时间 ${o.time}</div>
                 <div style="color:var(--gold);font-weight:700;margin-top:6px;font-size:var(--fs-md)">${fmt(o.points)} 积分</div>
+                ${o.needLogistics === false ? `<div style="font-size:var(--fs-xs);color:var(--ink-4);margin-top:4px">无需物流 · 收货 ${o.address || '—'}</div>` : ''}
                 ${o.status === '取消中' ? `<div style="font-size:var(--fs-xs);color:var(--red);margin-top:4px">已申请取消，商家 48 小时内处理</div>` : ''}
                 ${o.status === '退款中' ? `<div style="font-size:var(--fs-xs);color:var(--orange-d);margin-top:4px">${o.refundNote || '已申请退款，商家 72 小时内审核'}</div>` : ''}
               </div>
             </div>
             <div class="oc-foot">
-              ${o.status === '已发货' ? `<button class="btn btn-sm btn-ghost" data-logi="${o.id}">${ic('i-truck')}查看物流</button><button class="btn btn-sm btn-primary" data-recv="${o.id}">确认收货</button>` : ''}
+              ${o.status === '已发货' ? (o.needLogistics === false ? `<span class="tag-mini tag-gray">无需物流</span><button class="btn btn-sm btn-primary" data-recv="${o.id}">确认收货</button>` : `<button class="btn btn-sm btn-ghost" data-logi="${o.id}">${ic('i-truck')}查看物流</button><button class="btn btn-sm btn-primary" data-recv="${o.id}">确认收货</button>`) : ''}
               ${o.status === '待发货' ? `<button class="btn btn-sm btn-plain" data-cancel="${o.id}">申请取消</button>` : ''}
               ${o.status === '取消中' ? `<button class="btn btn-sm btn-ghost" data-cancelback="${o.id}">撤销申请</button>` : ''}
               ${o.status === '退款中' ? `<button class="btn btn-sm btn-ghost" data-refundback="${o.id}">撤销退款</button>` : ''}
@@ -2118,16 +2130,20 @@ SCREENS.orders = {
     });
     app.querySelectorAll('[data-logi]').forEach(b => b.onclick = () => {
       const o = S.orders.find(x => x.id === b.dataset.logi);
+      const noLogi = o.needLogistics === false;
       const m = openModal(`
         <div class="sheet-panel">
           <div class="sheet-handle"></div>
-          <h3 style="margin-bottom:6px">物流追踪</h3>
-          <p style="font-size:var(--fs-sm);color:var(--ink-3);margin-bottom:18px">顺丰速运 SF1386688992 · ${o.name}</p>
+          <h3 style="margin-bottom:6px">${noLogi ? '无需物流' : '物流追踪'}</h3>
+          ${noLogi
+            ? `<p style="font-size:var(--fs-sm);color:var(--ink-3);line-height:1.7;padding:8px 0">本商品无需物流，请按兑换说明线下领取 / 线上核销（如卡密、到店核销等）。</p>
+               <div style="font-size:var(--fs-sm);color:var(--ink-2);line-height:1.8;margin-top:6px">收货地址：${o.address || '—'}<br>联系电话：${o.phoneFull || o.phone || '—'}</div>`
+            : `<p style="font-size:var(--fs-sm);color:var(--ink-3);margin-bottom:18px">顺丰速运 SF1386688992 · ${o.name}</p>
           ${(o.logistics || []).map((l, i) => `
             <div class="logi-step ${i === 0 ? 'cur' : ''}">
               <div class="ls-line"><span class="ls-dot"></span><span class="ls-bar"></span></div>
               <div class="ls-body">${l.d}<br><time style="font-size:11px;color:var(--ink-4)">${l.t}</time></div>
-            </div>`).join('')}
+            </div>`).join('')}`}
           <button class="btn btn-plain btn-block" style="margin-top:8px" data-close>关闭</button>
         </div>`, true);
       m.querySelector('[data-close]').onclick = () => closeModal(m);
