@@ -1419,3 +1419,56 @@ textarea.input{height:auto;min-height:96px;padding:12px 16px;resize:none;font-si
 .hb-foot-note{
   margin:16px 16px 24px;padding-top:12px;text-align:center;font-size:var(--fs-xs);color:var(--ink-4);line-height:1.6;
 }
+
+/* ============================================================
+   SP2 10.5 求助提醒增强：语音播报 + 震动
+   ============================================================ */
+/* 守护者工作台 · 提醒快捷入口 */
+.rs-quick{
+  margin-top:12px;width:100%;display:flex;align-items:center;gap:8px;
+  background:var(--bg);border-radius:10px;padding:9px 12px;
+}
+.rs-quick .rsq-ic{
+  width:24px;height:24px;border-radius:50%;flex:none;background:var(--line-2);color:var(--ink-4);
+  display:flex;align-items:center;justify-content:center;
+}
+.rs-quick .rsq-ic.on{background:var(--blue-l);color:var(--blue)}
+.rs-quick .rsq-ic .ic{width:14px;height:14px}
+.rs-quick .rsq-text{flex:1;min-width:0;font-size:var(--fs-xs);color:var(--ink-2);text-align:left}
+.rs-quick .rsq-arrow{width:14px;height:14px;color:var(--ink-4);flex:none}
+
+/* 提醒设置页 */
+.rs-wrap{padding:4px 0 24px}
+.rs-intro{
+  margin:12px 16px;display:flex;gap:10px;align-items:flex-start;
+  background:var(--blue-l);border-radius:var(--r-lg);padding:14px;
+}
+.rs-intro-ic{
+  width:34px;height:34px;border-radius:10px;flex:none;background:var(--blue);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+}
+.rs-intro-ic .ic{width:18px;height:18px}
+.rs-intro b{font-size:var(--fs-base);font-weight:700;display:block}
+.rs-intro p{font-size:var(--fs-xs);color:var(--ink-2);line-height:1.7;margin-top:4px}
+.rs-card{margin:12px 16px 0;overflow:hidden}
+.rs-row{width:100%;padding:14px 16px}
+.rs-row + .rs-row{border-top:1px solid var(--line-2)}
+.rs-sec-title{font-size:var(--fs-md);font-weight:700;padding:14px 16px 0}
+.rs-script{
+  margin:10px 16px 14px;padding:12px 14px;border-radius:12px;background:var(--bg);
+  font-size:var(--fs-sm);color:var(--ink);line-height:1.8;
+}
+.rs-chime{
+  display:inline-block;margin-right:6px;padding:1px 8px;border-radius:999px;
+  background:var(--orange-l);color:var(--orange-d);font-size:var(--fs-xs);font-weight:700;
+}
+#rsTry{margin:0 16px 4px;width:calc(100% - 32px)}
+.rs-tip{
+  margin:0 16px;font-size:var(--fs-xs);color:var(--ink-4);line-height:1.6;
+}
+.rs-card .rs-tip:last-child{padding-bottom:14px}
+.rs-note{
+  margin:14px 16px 0;display:flex;gap:8px;align-items:flex-start;
+  font-size:var(--fs-xs);color:var(--ink-4);line-height:1.7;
+}
+.rs-note .ic{width:14px;height:14px;flex:none;margin-top:2px}

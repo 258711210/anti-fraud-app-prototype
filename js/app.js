@@ -3,7 +3,17 @@
    ============================================================ */
 
 /* ---------- 全局状态 ---------- */
+/* 求助提醒设置持久化（模拟云端同步，本地缓存兜底） */
+function loadRemind() {
+  try { return JSON.parse(localStorage.getItem('gd_remind') || '{}'); } catch (e) { return {}; }
+}
+function saveRemind() {
+  try { localStorage.setItem('gd_remind', JSON.stringify(S.remind)); } catch (e) {}
+}
+
 const S = {
+  /* SP2 10.5 求助提醒：语音播报 + 震动（默认全开；音量跟随系统铃声 / 媒体音量，不提供独立滑块） */
+  remind: Object.assign({ speech: true, vibrate: true }, loadRemind()),
   agreed: false,
   role: null,                       // 'seeker' | 'guardian'
   loginTab: 'onekey',
@@ -139,7 +149,7 @@ function showRateLimitDlg(remaining) {
 
 /* ---------- 路由 ---------- */
 function go(id, params, keepTimers) {
-  if (!keepTimers) { clearTimers(); closeAllModals(); }
+  if (!keepTimers) { clearTimers(); closeAllModals(); try { Alert.stop(); } catch (e) {} }
   const cur = stack[stack.length - 1];
   if (cur !== id) stack.push(id);
   render(id, params);
@@ -149,7 +159,7 @@ function back(fallback) {
   const id = stack.pop() || fallback || (S.role === 'guardian' ? 'guard' : 'home');
   go(id);
 }
-function resetTo(id) { clearTimers(); closeAllModals(); stack = [id]; render(id); }
+function resetTo(id) { clearTimers(); closeAllModals(); try { Alert.stop(); } catch (e) {} stack = [id]; render(id); }
 
 function render(id, params) {
   const fn = SCREENS[id];
@@ -1234,6 +1244,11 @@ SCREENS.guard = {
           ${g.online ? '暂停守护' : '开启在线守护'}
         </button>
         ${g.online ? '<button style="margin-top:10px;font-size:var(--fs-xs);color:var(--ink-4);text-decoration:underline" id="demoOrder">演示：立即模拟一笔守护请求</button>' : ''}
+        ${g.online ? `<button class="rs-quick" id="rsQuick">
+          <span class="rsq-ic ${S.remind.speech ? 'on' : ''}">${ic(S.remind.speech ? 'i-volume' : 'i-volume-off')}</span>
+          <span class="rsq-text">求助提醒：${S.remind.speech ? '语音播报已开启' : '语音播报已关闭'}${S.remind.vibrate ? ' · 震动' : ''}</span>
+          ${ic('i-right', 'rsq-arrow')}
+        </button>` : ''}
       </div>
       <div class="stat-row">
         <div class="stat-cell"><b style="color:var(--blue)">3</b><span>今日守护</span></div>
@@ -1289,6 +1304,8 @@ SCREENS.guard = {
     };
     const demo = $('#demoOrder');
     if (demo) demo.onclick = showIncomingOrder;
+    const rsq = $('#rsQuick');
+    if (rsq) rsq.onclick = () => go('remind-settings');
   }
 };
 
@@ -1323,8 +1340,96 @@ function showOnlineSummary(elapsed) {
   m.querySelector('[data-ok]').onclick = () => closeModal(m);
 }
 
-/* 守护请求弹窗（极简：有人需要帮助 + 是否提供帮助） */
+/* ============================================================
+   SP2 10.5 求助提醒增强：语音播报 + 震动（APP 前台）
+   - 播报：预置「叮咚」提示音 + 系统 TTS 合成正文（离线可用，不支持时降级）
+   - 震动：3 组长震 600ms + 间隔 200ms，随播报同步
+   ============================================================ */
+const Alert = {
+  ttsOK: typeof speechSynthesis !== 'undefined' && typeof SpeechSynthesisUtterance !== 'undefined',
+  buzzOK: typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function',
+  ac: null,
+  tids: [],
+  active: false,
+
+  /* 提示音「叮咚」：WebAudio 合成两声正弦音，不依赖音频文件 */
+  chime() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!this.ac) this.ac = new AC();
+      if (this.ac.state === 'suspended') this.ac.resume();
+      /* 提示音音量：跟随系统铃声 / 媒体音量，不提供独立滑块（SP2 10.5.5） */
+      const vol = 0.28;
+      [[880, 0], [1174.7, 0.22]].forEach(([freq, delay]) => {
+        const o = this.ac.createOscillator(), g = this.ac.createGain();
+        o.type = 'sine'; o.frequency.value = freq;
+        const t0 = this.ac.currentTime + delay;
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(vol, t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.2);
+        o.connect(g); g.connect(this.ac.destination);
+        o.start(t0); o.stop(t0 + 0.22);
+      });
+    } catch (e) { /* 音频不可用时静默降级 */ }
+  },
+
+  /* TTS 播报正文（zh-CN，语速 1.05） */
+  say(text, force) {
+    if (!this.ttsOK) return false;
+    if (!force && !S.remind.speech) return false;
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      const zh = (speechSynthesis.getVoices() || []).find(v => /zh|CN/i.test(v.lang));
+      if (zh) u.voice = zh;
+      u.lang = 'zh-CN';
+      u.rate = 1.05;
+      /* TTS 音量跟随系统媒体音量，不设置 u.volume 即可走默认值（SP2 10.5.5） */
+      speechSynthesis.speak(u);
+      return true;
+    } catch (e) { return false; }
+  },
+
+  /* 震动：3 组长震（iOS Safari 不支持 navigator.vibrate，自动跳过） */
+  buzz() {
+    if (!this.buzzOK || !S.remind.vibrate) return;
+    try { navigator.vibrate([600, 200, 600, 200, 600]); } catch (e) {}
+  },
+
+  /* 播报文案：所有求助统一内容，不区分诈骗类型、不含求助者信息 */
+  textOf() {
+    return ALERT_TPL.text;
+  },
+
+  /* 触发播报 + 震动：首播 + 5s 后第二遍（最多 2 遍），9s 后自动结束 */
+  start() {
+    this.stop();
+    if (!S.remind.speech && !S.remind.vibrate) return;
+    this.active = true;
+    const fire = () => {
+      if (!this.active) return;
+      if (S.remind.speech) { this.chime(); this.say(this.textOf()); }
+      this.buzz();
+    };
+    fire();
+    this.tids.push(setTimeout(fire, 5000));
+    this.tids.push(setTimeout(() => { this.active = false; }, 9000));
+  },
+
+  stop() {
+    this.active = false;
+    this.tids.forEach(clearTimeout);
+    this.tids = [];
+    if (this.ttsOK) { try { speechSynthesis.cancel(); } catch (e) {} }
+    if (this.buzzOK) { try { navigator.vibrate(0); } catch (e) {} }
+  },
+};
+
+/* 守护请求弹窗（极简：有人需要帮助 + 是否提供帮助）
+   SP2 10.5：弹窗触发语音播报 + 震动，但弹窗内不展示播报状态、不提供静音入口 */
 function showIncomingOrder() {
+  /* 随机命中一类诈骗（仅用于通话侧展示，播报文案不区分类型） */
+  const type = FRAUD_TYPES[Math.floor(Math.random() * FRAUD_TYPES.length)];
   const m = openModal(`
     <div class="order-pop">
       <div class="op-simple">
@@ -1338,10 +1443,15 @@ function showIncomingOrder() {
       </div>
     </div>`);
   m.dataset.lock = '1';
-  m.querySelector('[data-rej]').onclick = () => { closeModal(m); toast('已婉拒本次守护请求'); };
+
+  /* 触发语音播报 + 震动（设置关闭则不播报）；弹窗内不做任何播报态展示 */
+  Alert.start();
+
+  m.querySelector('[data-rej]').onclick = () => { Alert.stop(); closeModal(m); toast('已婉拒本次守护请求'); };
   m.querySelector('[data-acc]').onclick = () => {
+    Alert.stop();
     closeModal(m);
-    S.helpType = FRAUD_TYPES.find(t => t.name === '冒充客服退款类').id;
+    S.helpType = type.id;
     go('call', { as: 'guard' });
   };
 }
@@ -2339,6 +2449,7 @@ SCREENS.profile = {
         ['address', 'i-loc', '#D6336C', '收货地址', ''],
       ] : []),
       ['records', 'i-doc', '#0B7285', isGuard ? '守护记录' : '求助记录', `${S.records.length} 条记录`],
+      ...(isGuard ? [['remind-settings', 'i-volume', '#185FA5', '提醒设置', S.remind.speech ? '语音播报 · 已开启' : '语音播报 · 已关闭']] : []),
       ['account-security', 'i-lock', '#5A6B84', '账号与安全', '注销账号 · 手机号登录'],
       ['service', 'i-headset', '#5A6B84', '客服中心', '96110 · 客服热线 · 投诉建议'],
       ['switch-role', 'i-refresh', '#6C5CE7', '切换身份', isGuard ? '当前：守护者' : '当前：求助者'],
@@ -2505,6 +2616,73 @@ SCREENS['edit-profile'] = {
       u.nickModifiedAt = now;
       toast('昵称已更新', 'i-check');
       render('edit-profile');
+    };
+  }
+};
+
+/* ============ 23a-2. 提醒设置（SP2 10.5 语音播报 + 震动） ============ */
+SCREENS['remind-settings'] = {
+  html() {
+    const r = S.remind;
+    const sample = Alert.textOf();
+    return `
+    <div class="screen">
+      ${navbar('提醒设置')}
+      <div class="rs-wrap">
+        <div class="rs-intro">
+          <span class="rs-intro-ic">${ic('i-volume')}</span>
+          <div>
+            <b>APP 前台收到求助时提醒你</b>
+            <p>守护者身份、应用处于前台时，收到守护请求将语音播报提醒并震动提示，无需盯屏也能及时接单。</p>
+          </div>
+        </div>
+        <div class="card rs-card">
+          <div class="list-item rs-row">
+            <div class="li-body">
+              <div class="li-title">求助语音播报</div>
+              <div class="li-sub">收到求助时语音播报提醒，最多 2 遍</div>
+            </div>
+            <button class="switch ${r.speech ? 'on' : ''}" data-sw="speech" aria-label="求助语音播报"></button>
+          </div>
+          <div class="list-item rs-row">
+            <div class="li-body">
+              <div class="li-title">求助震动提示</div>
+              <div class="li-sub">${Alert.buzzOK ? '3 组长震，与播报同步' : '当前设备 / 浏览器不支持震动'}</div>
+            </div>
+            <button class="switch ${r.vibrate ? 'on' : ''}" data-sw="vibrate" aria-label="求助震动提示"></button>
+          </div>
+        </div>
+        <div class="card rs-card">
+          <div class="rs-sec-title">播报内容</div>
+          <div class="rs-script"><span class="rs-chime">${ALERT_TPL.chime}</span>${esc(sample)}</div>
+          <button class="btn btn-primary btn-block" id="rsTry">${ic('i-volume')}试听播报</button>
+          <p class="rs-tip">所有求助统一播报该内容：提示音 0.6 秒 + 正文约 2.5 秒，合计约 3 秒，不区分诈骗类型</p>
+          <p class="rs-tip">播报音量跟随手机系统铃声 / 媒体音量，可在系统设置或手机侧边音量键调整</p>
+        </div>
+        <div class="rs-note">
+          ${ic('i-shield')}
+          <span>播报内容不含诈骗类型，也不播报求助者姓名、手机号、金额等敏感信息；应用处于后台或锁屏时，沿用系统推送与来电铃声提醒。</span>
+        </div>
+      </div>
+    </div>`;
+  },
+  mount() {
+    bindBack(app);
+    app.querySelectorAll('[data-sw]').forEach(btn => {
+      btn.onclick = () => {
+        const key = btn.dataset.sw;
+        S.remind[key] = !S.remind[key];
+        saveRemind();
+        toast(S.remind[key] ? '已开启' : '已关闭', 'i-check');
+        render('remind-settings');
+      };
+    });
+    $('#rsTry').onclick = () => {
+      if (!Alert.ttsOK) { toast('当前设备不支持语音播报', 'i-alert'); return; }
+      Alert.stop();
+      Alert.chime();
+      Alert.say(ALERT_TPL.chime + ' —— ' + Alert.textOf(), true);
+      if (S.remind.vibrate) Alert.buzz();
     };
   }
 };
