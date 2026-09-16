@@ -2401,6 +2401,7 @@ SCREENS.records = {
           <div class="record-item ${isPending ? 'is-pending' : ''}">
             <div class="ri-top">
               <span class="ri-status ${isPending ? 'pending' : 'done'}">${isPending ? '待评价' : '已完成'}</span>
+              <span class="ri-id" data-rid="${r.id}">单号 · ${r.id}</span>
               <time>${r.time}</time>
             </div>
             <div class="ri-rows">
@@ -2430,6 +2431,11 @@ SCREENS.records = {
     app.querySelectorAll('[data-rate]').forEach(b => b.onclick = () => {
       curRateId = b.dataset.rate;
       go('rate');
+    });
+    app.querySelectorAll('[data-rid]').forEach(b => b.onclick = () => {
+      const id = b.dataset.rid;
+      if (navigator.clipboard) navigator.clipboard.writeText(id).catch(() => {});
+      toast(`已复制记录单号 ${id}`, 'i-doc');
     });
   }
 };
