@@ -701,6 +701,7 @@ SCREENS['auth-quiz'] = {
     </div>`;
   },
   mount() {
+    bindBack(app);
     let picked = -1;
     app.querySelectorAll('[data-opt]').forEach(b => b.onclick = () => {
       app.querySelectorAll('.quiz-opt').forEach(x => x.classList.remove('on'));
