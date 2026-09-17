@@ -2,6 +2,36 @@
    反诈守护 原型 · 交互逻辑（纯前端 SPA，无后端依赖）
    ============================================================ */
 
+/* ---------- 演示时间基准 ----------
+   订单的「取消中」需要展示商家处理截止时间与剩余时长。若把时间写死成历史日期，打开
+   原型时倒计时会立刻变成负数（看起来像数据出错）。因此这里以「打开原型的时刻」为
+   基准 NOW，订单时间全部按相对偏移量生成，保证任何时候打开演示都自洽。 */
+const NOW = Date.now();
+const MIN = 60 * 1000, HOUR = 60 * MIN, DAY = 24 * HOUR;
+/* ---------- 订单时效常量（SP2 §4.6.2，与 PRD 保持一致，改口径先改这里） ----------
+   订单只有 5 个状态：待发货 / 取消中 / 已发货 / 已完成 / 已取消。
+   业务铁律：仅「发货前」可取消；发货后既不可取消、也不可退款。 */
+const CANCEL_SLA = 48 * HOUR;   // 取消申请：处理方 48 小时内响应，逾期自动同意
+const SHIP_SLA   = 72 * HOUR;   // 发货时限：下单后 72 小时内应发货
+const AUTO_RECV  = 7 * DAY;     // 自动确认收货：发货后 7 天未确认则系统自动确认
+/* 偏移量（正数=未来，负数=过去）→ 时间戳 */
+const tOf = off => NOW + off;
+const pad2 = n => String(n).padStart(2, '0');
+/* 时间戳 → MM-DD HH:mm */
+function fmtDT(ts) {
+  const d = new Date(ts);
+  return `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+/* 距目标时间还剩多久（用于「商家需在 xx 前处理」的倒计时） */
+function fmtLeft(ts) {
+  const ms = ts - Date.now();
+  if (ms <= 0) return '已超时，等待系统处理';
+  const h = Math.floor(ms / HOUR), m = Math.floor((ms % HOUR) / MIN);
+  if (h >= 24) { const d = Math.floor(h / 24); return `剩余 ${d} 天 ${h % 24} 小时`; }
+  if (h >= 1) return `剩余 ${h} 小时 ${m} 分`;
+  return `剩余 ${m} 分钟`;
+}
+
 /* ---------- 全局状态 ---------- */
 /* 求助提醒设置持久化（模拟云端同步，本地缓存兜底） */
 function loadRemind() {
@@ -38,15 +68,100 @@ const S = {
   helpType: null,                   // 当前求助类型
   lastHelpTime: 0,                  // 上次发起求助的时间戳（频率限制：两次间隔≥60秒）
   addr: JSON.parse(JSON.stringify(DEFAULT_ADDR)),
+  /* 订单数据模型（时间字段一律用相对 NOW 的偏移量，单位 ms；正数=未来，负数=过去）
+     createdOff      下单（兑换）时间
+     shipOff         商家发货时间
+     finishOff       完成时间（用户确认收货 / 系统自动收货）
+     finishBy        'user' 本人确认收货 / 'auto' 超时系统自动确认
+     cancelApplyOff  取消申请提交时间 → 处理方需在 +48h 前响应
+     cancelAtOff     取消生效时间（积分同期原路退回）
+     cancelBy        'user' 用户申请 / 'merchant' 商户取消 / 'platform' 平台操作
+                     自营订单由平台取消（平台即履约方）、商户订单由平台兜底代取消，二者按 source 区分文案
+     cancelReason    取消原因（对应 cancelBy 的发起方填写）
+     source          'self' 平台自营 / 'shop' 商户（赞助商）供给
+   注：订单状态仅 5 个（待发货 / 取消中 / 已发货 / 已完成 / 已取消）。发货后既不可
+   取消、也不可退款，因此不存在任何「退款中 / 已退款」的售后台与字段。 */
   orders: [
-    { id: 'o1', no: 'SO20260821001', name: '反诈主题电子证书', icon: 'i-doc', color: '#185FA5', points: 50, status: '已发货', time: '08-21 10:22', needLogistics: false, address: '海南省海口市美兰区国兴大道 88 号反诈大厦 12 楼', phone: '138****8888', phoneFull: '13888888888' },
-    { id: 'o2', no: 'SO20260721002', name: '《全民反诈手册》', icon: 'i-book', color: '#0B7285', points: 300, status: '已完成', time: '07-21 15:08', needLogistics: true },
-    { id: 'o3', no: 'SO20260712003', name: '守护者定制马克杯', icon: 'i-cup', color: '#B4610E', points: 600, status: '已取消', time: '07-12 09:41', needLogistics: true },
-    { id: 'o4', no: 'SO20260818004', name: '腾讯视频定制抱枕', icon: 'i-gift', color: '#6C5CE7', points: 300, status: '取消中', time: '08-18 10:05', needLogistics: true },
-    { id: 'o5', no: 'SO20260820005', name: '守护者联名帆布包', icon: 'i-bag', color: '#0F6E56', points: 500, status: '待发货', time: '08-20 09:30', needLogistics: true },
-    { id: 'o6', no: 'SO20260810006', name: '反诈定制手机壳', icon: 'i-phone', color: '#185FA5', points: 200, status: '退款中', time: '08-10 14:20',
-      refundNote: '已申请退款，商家将在 72 小时内审核，同意后积分原路退回', needLogistics: true },
-    { id: 'o7', no: 'SO20260728007', name: '公益爱心文具套装', icon: 'i-doc', color: '#6C5CE7', points: 150, status: '已退款', time: '07-28 11:00', needLogistics: true },
+    /* 已发货 · 物流在途（实物商品：物流公司 + 运单号 + 最新节点） */
+    { id: 'o8', no: 'SO20260914008', name: '不倒翁定制运动水壶', icon: 'i-member', color: '#0F6E56', points: 800,
+      status: '已发货', source: 'shop', shopId: 's1',
+      createdOff: -3 * DAY - 2 * HOUR, shipOff: -2 * DAY - 1 * HOUR, needLogistics: true,
+      address: '海南省海口市美兰区国兴大道 88 号反诈大厦 12 楼', phone: '138****8888', phoneFull: '13888888888',
+      carrier: '顺丰速运', trackingNo: 'SF1386688992',
+      logistics: [
+        { d: '快件已到达【海口美兰集散中心】，正在派送中', off: -5 * HOUR },
+        { d: '快件已到达【海口转运中心】',                 off: -26 * HOUR },
+        { d: '快件已发出，下一站【海口转运中心】',         off: -40 * HOUR },
+        { d: '【广州白云集散中心】已收入',                 off: -46 * HOUR },
+        { d: '商家已发货，顺丰速运已揽收',                 off: -49 * HOUR },
+      ] },
+    /* 已发货 · 无需物流（虚拟商品：确认交付即视为发货，无物流轨迹） */
+    { id: 'o11', no: 'SO20260916011', name: '腾讯视频VIP月卡', icon: 'i-video', color: '#6C5CE7', points: 800,
+      status: '已发货', source: 'shop', shopId: 's2', needLogistics: false,
+      createdOff: -26 * HOUR, shipOff: -20 * HOUR, virtual: true },
+    /* 已完成 · 本人确认收货（物流信息条沿用，徽章切换为「已签收」） */
+    { id: 'o2', no: 'SO20260721002', name: '《全民反诈手册》', icon: 'i-book', color: '#0B7285', points: 300,
+      status: '已完成', source: 'self', finishBy: 'user',
+      createdOff: -9 * DAY, shipOff: -7 * DAY, finishOff: -5 * DAY, needLogistics: true,
+      address: '海南省海口市美兰区国兴大道 88 号反诈大厦 12 楼', phone: '138****8888', phoneFull: '13888888888',
+      carrier: '中通快递', trackingNo: 'ZT2026072258701',
+      logistics: [
+        { d: '您的快件已签收，签收人：前台代收。感谢使用中通快递', off: -5 * DAY },
+        { d: '快件正在派送中，派送员 王师傅 138****6688',        off: -5 * DAY - 6 * HOUR },
+        { d: '快件已到达【海口美兰网点】',                        off: -5 * DAY - 9 * HOUR },
+        { d: '快件已发出，下一站【海口转运中心】',                off: -7 * DAY + 9 * HOUR },
+        { d: '【杭州转运中心】已收入',                            off: -7 * DAY + 2 * HOUR },
+        { d: '商家已发货，中通快递已揽收',                        off: -7 * DAY },
+      ] },
+    /* 已完成 · 超时系统自动确认收货（用户未手动确认） */
+    { id: 'o7', no: 'SO20260901007', name: '公益爱心文具套装', icon: 'i-doc', color: '#6C5CE7', points: 150,
+      status: '已完成', source: 'self', finishBy: 'auto',
+      createdOff: -18 * DAY, shipOff: -16 * DAY, finishOff: -9 * DAY, needLogistics: true,
+      carrier: '圆通速递', trackingNo: 'YT8899001122',
+      address: '海南省海口市美兰区国兴大道 88 号反诈大厦 12 楼', phone: '138****8888', phoneFull: '13888888888',
+      logistics: [
+        { d: '确认收货超时，系统已自动为您确认收货', off: -9 * DAY },
+        { d: '快件已到达【海口美兰网点】，正在派送中', off: -9 * DAY - 5 * HOUR },
+        { d: '商家已发货，圆通速递已揽收', off: -16 * DAY },
+      ] },
+    /* 已取消 · 用户申请取消，处理方同意（取消发起方=用户） */
+    { id: 'o3', no: 'SO20260712003', name: '守护者定制马克杯', icon: 'i-cup', color: '#B4610E', points: 600,
+      status: '已取消', source: 'self', needLogistics: true, cancelBy: 'user',
+      createdOff: -13 * DAY, cancelApplyOff: -12 * DAY, cancelAtOff: -11 * DAY - 8 * HOUR,
+      cancelReason: '拍错了，想重新下单' },
+    /* 已取消 · 商户因库存不足主动取消（取消发起方=商户） */
+    { id: 'o6', no: 'SO20260810006', name: '反诈定制手机壳', icon: 'i-phone', color: '#185FA5', points: 200,
+      status: '已取消', source: 'shop', shopId: 's1', needLogistics: true, cancelBy: 'merchant',
+      createdOff: -8 * DAY, cancelAtOff: -7 * DAY - 20 * HOUR,
+      cancelReason: '库存不足，无法发货' },
+    /* 取消中 · 48 小时处理时效内 */
+    { id: 'o4', no: 'SO20260818004', name: '腾讯视频定制抱枕', icon: 'i-gift', color: '#6C5CE7', points: 300,
+      status: '取消中', source: 'shop', shopId: 's2', needLogistics: true, cancelBy: 'user',
+      createdOff: -30 * HOUR, cancelApplyOff: -6 * HOUR,
+      cancelReason: '拍错了，想重新下单' },
+    /* 取消中 · 处理即将超时（用于验证临近截止的紧迫提示） */
+    { id: 'o10', no: 'SO20260915010', name: '京东定制运动腰包', icon: 'i-gift', color: '#A32D2D', points: 800,
+      status: '取消中', source: 'shop', shopId: 's3', needLogistics: true, cancelBy: 'user',
+      createdOff: -50 * HOUR, cancelApplyOff: -45 * HOUR,
+      cancelReason: '收货地址填写有误' },
+    /* 待发货 · 时效内 */
+    { id: 'o5', no: 'SO20260820005', name: '守护者联名帆布包', icon: 'i-bag', color: '#0F6E56', points: 500,
+      status: '待发货', source: 'self', needLogistics: true,
+      createdOff: -20 * HOUR },
+    /* 待发货 · 发货时限即将到期（用于验证「商家需尽快发货」的紧迫提示） */
+    { id: 'o12', no: 'SO20260917012', name: '不倒翁定制运动水壶', icon: 'i-member', color: '#0F6E56', points: 800,
+      status: '待发货', source: 'shop', shopId: 's1', needLogistics: true,
+      createdOff: -70 * HOUR },
+    /* 已取消 · 商户关停，平台代取消（取消发起方=平台；商户订单才叫「代取消」） */
+    { id: 'o13', no: 'SO20260705013', name: '京东定制运动腰包', icon: 'i-gift', color: '#A32D2D', points: 800,
+      status: '已取消', source: 'shop', shopId: 's3', needLogistics: true, cancelBy: 'platform',
+      createdOff: -25 * DAY, cancelAtOff: -23 * DAY,
+      cancelReason: '商户店铺关停' },
+    /* 已取消 · 自营商品缺货，平台主动取消（自营订单平台即履约方，用户端显示「平台已取消订单」，不叫代取消） */
+    { id: 'o14', no: 'SO20260802014', name: '反诈定制手机壳', icon: 'i-phone', color: '#185FA5', points: 200,
+      status: '已取消', source: 'self', needLogistics: true, cancelBy: 'platform',
+      createdOff: -15 * DAY, cancelAtOff: -14 * DAY - 6 * HOUR,
+      cancelReason: '库存不足，无法发货' },
   ],
   msgs: JSON.parse(JSON.stringify(MESSAGES)),
   records: JSON.parse(JSON.stringify(HELP_RECORDS)),
@@ -166,6 +281,8 @@ function render(id, params) {
   if (!fn) return;
   app.innerHTML = fn.html(params || {});
   $('#statusbar').classList.toggle('on-dark', !!fn.dark);
+  /* 深色页面：状态栏区域跟随深底，避免浅色条带切断沉浸感 */
+  document.querySelector('.phone-screen')?.classList.toggle('dark', !!fn.dark);
   renderTabbar(fn.tab || null);
   fn.mount && fn.mount(params || {});
   app.querySelector('.screen')?.scrollTo(0, 0);
@@ -1492,27 +1609,25 @@ function hbMedals(n) {
   return `<span class="hb-medals">${ic('i-medal')}<b>${n}</b></span>`;
 }
 
+/* 领奖台：三列底部对齐，靠台阶高度差形成高台；视觉顺序 亚军 / 冠军 / 季军 */
 function buildPodium(top3, kind) {
   if (!top3.length) return '';
-  const cfg = {
-    1: { cls: 'p1', icon: 'i-crown', label: '冠军' },
-    2: { cls: 'p2', icon: 'i-trophy', label: '亚军' },
-    3: { cls: 'p3', icon: 'i-trophy', label: '季军' },
-  };
-  const card = (x, place) => {
-    const c = cfg[place];
+  const col = (x, place) => {
+    if (!x) return '<div class="hb-col"></div>';
     return `
-      <div class="hb-podium-card ${c.cls}">
-        <div class="hb-pc-place">${c.label}</div>
-        <div class="hb-pc-badge">${ic(c.icon)}</div>
-        ${hbAvatar(x, place === 1 ? 62 : 52)}
+      <div class="hb-col p${place}" data-gp="${x.id}">
+        <div class="hb-pc-ava">
+          ${place === 1 ? `<span class="hb-crown">${ic('i-crown')}</span>` : ''}
+          <span class="hb-pc-ring"></span>
+          ${hbAvatar(x, place === 1 ? 60 : 50)}
+        </div>
         <div class="hb-pc-name">${esc(x.name)}</div>
         <div class="hb-pc-meta">${hbLv(x.lv)}${hbMedals(x.medals)}</div>
-        <div class="hb-pc-helps"><b>${x[kind]}</b> 次守护</div>
+        <div class="hb-pc-count"><b>${x[kind]}</b>次守护</div>
+        <div class="hb-step"><span class="hb-step-no">${place}</span></div>
       </div>`;
   };
-  /* 视觉顺序：亚军 / 冠军 / 季军 */
-  return card(top3[1], 2) + card(top3[0], 1) + card(top3[2], 3);
+  return col(top3[1], 2) + col(top3[0], 1) + col(top3[2], 3);
 }
 
 function hbRow(x, kind) {
@@ -1521,14 +1636,15 @@ function hbRow(x, kind) {
     ? `<span class="hb-rank-icon rk-${x.rank}">${ic(x.rank === 1 ? 'i-trophy' : 'i-medal')}</span>`
     : `<span class="hb-rank-num">${x.rank}</span>`;
   return `
-    <div class="hb-row ${x.rank <= 3 ? 'top' : ''} ${isMe ? 'me' : ''}">
+    <div class="hb-row ${x.rank <= 3 ? 'top' : ''} ${isMe ? 'me' : ''}" data-gp="${x.id}">
       <div class="hb-rank">${rankCell}</div>
-      ${hbAvatar(x, 42)}
+      ${hbAvatar(x, 40)}
       <div class="hb-row-info">
         <div class="hb-row-name">${esc(x.name)}${isMe ? '<span class="hb-me-tag">我</span>' : ''}</div>
         <div class="hb-row-meta">${hbLv(x.lv)}${hbMedals(x.medals)}</div>
       </div>
-      <div class="hb-row-helps"><b>${x[kind]}</b></div>
+      <div class="hb-row-helps"><b>${x[kind]}</b><span>次</span></div>
+      ${ic('i-right', 'hb-row-arrow')}
     </div>`;
 }
 
@@ -1548,6 +1664,7 @@ function renderHeroBoard(kind) {
 }
 
 SCREENS.heroboard = {
+  dark: true,
   html(params) {
     const kind = params.kind || 'total';
     return `
@@ -1565,15 +1682,15 @@ SCREENS.heroboard = {
           <button class="hb-tab ${kind === 'month' ? 'on' : ''}" data-kind="month">月榜</button>
           <button class="hb-tab ${kind === 'week' ? 'on' : ''}" data-kind="week">周榜</button>
         </div>
+        <div id="hbPodium" class="hb-stage"></div>
       </div>
-      <div id="hbPodium" class="hb-podium"></div>
       <div class="hb-list-title">
         <span>Top 100 完整榜单</span>
         <span id="hbListHint">${kind === 'total' ? '累计守护' : '本月守护'}次数</span>
       </div>
       <div id="hbList" class="hb-list"></div>
       <div id="hbMyRank"></div>
-      <div class="hb-foot-note">榜单数据每日快照更新，仅展示公开昵称与守护次数</div>
+      <div class="hb-foot-note">榜单数据每日快照更新，仅展示公开昵称与守护数据<br>点击任意守护者可查看其公开详情</div>
     </div>`;
   },
   mount(params) {
@@ -1587,6 +1704,141 @@ SCREENS.heroboard = {
     };
     paint(kind);
     app.querySelectorAll('#hbTabs .hb-tab').forEach(t => t.onclick = () => paint(t.dataset.kind));
+    /* 领奖台与列表行点击 → 守护者公开详情（切换榜单后元素会重建，故用委托） */
+    app.querySelector('.screen').addEventListener('click', e => {
+      const t = e.target.closest('[data-gp]');
+      if (t) go('guard-profile', { id: t.dataset.gp });
+    });
+  }
+};
+
+/* ============ 守护者公开详情 ============ */
+/* 字符串稳定散列：让同一位守护者的公开数据每次打开都一致 */
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+/* 等级对应的最低守护次数门槛（与 LEVELS 保持一致） */
+const LV_FLOOR = [0, 20, 60, 150, 300];
+/* 按等级推导平均评分区间，与等级达成条件自洽（L1 无评分门槛，仍给出合理区间） */
+function scoreOfLv(lv, h) {
+  const base = [3.0, 3.2, 3.5, 4.0, 4.5][lv - 1] ?? 3.0;
+  return (base + (h % 5) / 10).toFixed(1);
+}
+/* 取勋章模板前 n 枚，作为该守护者「已获得」的勋章（他人详情只展示名称，不带时间） */
+function guardMedalsOf(n) {
+  const tpl = S.guard.badges || [];
+  return tpl.slice(0, Math.min(n, tpl.length)).map(b => ({
+    id: b.id, name: b.name, icon: b.icon, color: b.color,
+  }));
+}
+/* 某位守护者在指定榜单里的名次（不在榜则返回 0） */
+function rankOfGuard(id, kind) {
+  const x = heroBoardAll(kind).all.find(u => u.id === id);
+  return x ? x.rank : 0;
+}
+
+/* 统一解析守护者公开资料：本人 / 榜单成员 / 求助记录中的守护者
+   只解析对外可见字段（昵称、头像、等级、守护次数与评分、已获勋章） */
+function guardProfile(id) {
+  const g = S.guard;
+
+  if (id === 'me') {
+    return {
+      id: 'me', me: true, name: g.name, avatar: g.avatar, lv: g.level,
+      total: g.helps, month: g.monthHelps, week: g.weekHelps, score: g.score.toFixed(1),
+      medals: (g.badges || []).filter(b => b.earned),
+      ranks: { total: rankOfGuard('me', 'total'), month: rankOfGuard('me', 'month'), week: rankOfGuard('me', 'week') },
+    };
+  }
+
+  const hb = HERO_BOARD.find(x => x.id === id);
+  if (hb) {
+    const h = hashStr(hb.name);
+    return {
+      id: hb.id, name: hb.name, avatar: hb.avatar || '', lv: hb.lv,
+      total: hb.total, month: hb.month, week: hb.week, score: scoreOfLv(hb.lv, h),
+      medals: guardMedalsOf(hb.medals),
+      ranks: { total: rankOfGuard(id, 'total'), month: rankOfGuard(id, 'month'), week: rankOfGuard(id, 'week') },
+    };
+  }
+
+  const rec = S.records.find(r => 'rec:' + r.id === id);
+  if (rec) {
+    const h = hashStr(rec.guardName);
+    const lv = Math.min(5, Math.max(1, rec.lv || 3));
+    /* 记录里只有姓名与等级，其余公开数据按姓名稳定推导，保证同一人每次一致 */
+    const total = LV_FLOOR[lv - 1] + 6 + (h % 26);
+    return {
+      id, name: rec.guardName, avatar: '', lv,
+      total,
+      month: Math.max(2, Math.round(total * (0.04 + (h % 6) / 100))),
+      week: Math.max(1, Math.round(total * (0.01 + (h % 3) / 100))),
+      score: scoreOfLv(lv, h),
+      /* 等级越高可持有勋章越多，但不超过 10 枚 */
+      medals: guardMedalsOf(Math.min(10, lv * 2 - 1 + (h % 3))),
+      ranks: null,
+    };
+  }
+  return null;
+}
+
+SCREENS['guard-profile'] = {
+  dark: true,
+  html(params) {
+    const p = guardProfile(params.id);
+    if (!p) {
+      return `<div class="screen">${navbar('守护者详情')}
+        <div class="empty">${ic('i-user')}<p>未找到该守护者的公开信息</p></div></div>`;
+    }
+    const lvInfo = LEVELS[p.lv - 1] || LEVELS[0];
+    const rankLine = p.ranks && p.ranks.total
+      ? `总榜第 ${p.ranks.total} 名 · 月榜第 ${p.ranks.month} 名 · 周榜第 ${p.ranks.week} 名`
+      : '平台认证守护者 · 数据来自公开守护统计';
+    return `
+    <div class="screen">
+      ${navbar('守护者详情', { cls: 'transparent on-dark' })}
+      <div class="gp-hero">
+        <div class="gp-ava">
+          <span class="gp-ava-ring"></span>
+          ${hbAvatar(p, 84)}
+        </div>
+        <div class="gp-name">${esc(p.name)}${p.me ? '<span class="hb-me-tag" style="margin-left:8px">我</span>' : ''}</div>
+        <div class="gp-lv">${ic('i-medal')}L${p.lv} · ${lvInfo.name}</div>
+        <div class="gp-rank">${rankLine}</div>
+        <div class="gp-metrics">
+          <div class="gp-metric"><b>${p.total}<em>次</em></b><span>累计守护</span></div>
+          <div class="gp-metric"><b>${p.month}<em>次</em></b><span>本月守护</span></div>
+          <div class="gp-metric"><b>${p.score}<em>分</em></b><span>平均评分</span></div>
+        </div>
+      </div>
+      <div class="gp-body">
+        <div class="gp-card">
+          <div class="gp-card-title">${ic('i-medal')}<span>获得的勋章</span></div>
+          ${p.medals.length ? `
+            <div class="gp-medals">
+              ${p.medals.map(m => `
+                <button class="gp-medal" data-mid="${m.id}" style="--c:${m.color}" title="${m.name}">
+                  <span class="gp-md">${ic(m.icon)}</span>
+                </button>`).join('')}
+            </div>
+            <div class="gp-medals-hint">点击勋章可查看勋章名称</div>
+          ` : `<div class="gp-empty">${ic('i-medal')}<span>暂无守护勋章</span></div>`}
+        </div>
+        <div class="gp-note">${ic('i-lock')}<span>本页仅展示平台公开的守护数据与勋章，不包含联系方式、真实姓名等非公开信息。</span></div>
+      </div>
+    </div>`;
+  },
+  mount(params) {
+    bindBack(app);
+    const p = guardProfile(params.id);
+    if (!p) return;
+    /* 他人守护者的勋章只展示名称，不展示获取时间 */
+    app.querySelectorAll('[data-mid]').forEach(el => el.onclick = () => {
+      const m = p.medals.find(x => x.id === el.dataset.mid);
+      if (m) openBadgeDetail(m, true);
+    });
   }
 };
 
@@ -1631,53 +1883,95 @@ SCREENS.level = {
   mount() { bindBack(app); }
 };
 
-/* ============ 16. 守护勋章 · 答题挑战 ============ */
+/* ============ 16. 守护勋章墙（宣传海报 + 混排勋章网格 + 勋章详情） ============ */
+
+/* 勋章详情：仿 Apple Fitness，勋章旋转放大入场并展示获取时间
+   simple=true 为「只看勋章名称」的精简版（用于他人守护者详情，不暴露获取时间等信息） */
+function openBadgeDetail(b, simple) {
+  const m = openModal(`
+    <button class="bd-close" data-x>${ic('i-close')}</button>
+    <div class="bd-wrap">
+      <div class="bd-stage" style="--c:${b.color};--cglow:${b.color}55">
+        <div class="bd-halo"></div>
+        <div class="bd-ring"></div>
+        <div class="bd-ring r2"></div>
+        <div class="bd-ring r3"></div>
+        <div class="bd-medal">
+          <div class="bd-disc">${ic(b.icon)}</div>
+          <div class="bd-shine"></div>
+        </div>
+      </div>
+      ${simple ? `
+      <h2 class="bd-name bd-name-solo">${b.name}</h2>` : `
+      <div class="bd-tag">${ic('i-check')} 已获得</div>
+      <h2 class="bd-name">${b.name}</h2>
+      <div class="bd-time">${ic('i-clock')} 获取时间 ${b.time}</div>
+      <p class="bd-desc">${b.desc}</p>`}
+    </div>`);
+  m.classList.add('badge-detail');
+  m.querySelectorAll('[data-x]').forEach(el => el.onclick = () => closeModal(m));
+  return m;
+}
+
 SCREENS['badge-game'] = {
   html() {
     const g = S.guard;
-    const earned = (g.badges || []).filter(b => b.earned);
-    const locked = (g.badges || []).filter(b => !b.earned);
+    const all = g.badges || [];
+    const earned = all.filter(b => b.earned);
+    const total = all.length;
+    const pct = total ? Math.round(earned.length / total * 100) : 0;
     return `
     <div class="screen">
       ${navbar('守护勋章')}
-      <div style="background:linear-gradient(160deg,#B8860B,#D9A93C);padding:20px 18px 24px;color:#fff;text-align:center;flex:none">
-        <div style="font-size:var(--fs-2xl);font-weight:800">${earned.length} <span style="font-size:var(--fs-md);opacity:.8">/ ${g.badges.length} 枚勋章</span></div>
-        <p style="font-size:var(--fs-sm);opacity:.85;margin-top:6px;line-height:1.6">答题闯关，赢取专属守护勋章<br>每枚勋章对应一类诈骗知识</p>
+
+      <!-- 上半部分：宣传海报 -->
+      <div class="bg-poster">
+        <div class="bgp-eyebrow">${ic('i-shield')} 反诈守护 · 荣誉体系</div>
+        <div class="bgp-emblem">
+          <div class="bgp-halo"></div>
+          <div class="bgp-disc">${ic('i-medal')}</div>
+        </div>
+        <div class="bgp-title">集齐 <em>${total}</em> 枚守护勋章<br>成为骗局的终结者</div>
+        <div class="bgp-sub">答题闯关识破十类骗局<br>每解锁一枚，就少一个家庭被骗</div>
+        <div class="bgp-prog">
+          <div class="bgp-prog-row"><span><b>${earned.length}</b>/${total} 已解锁</span><span>${pct}%</span></div>
+          <div class="bgp-bar"><i style="width:${pct}%"></i></div>
+        </div>
       </div>
-      <div class="sec-title">${ic('i-star')} <span style="color:var(--gold)">已获得勋章</span></div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0 16px 4px">
-        ${earned.map(b => `
-          <button class="badge-card" data-badge="${b.id}" style="background:var(--card);border-radius:var(--r-md);padding:16px 8px;text-align:center;box-shadow:var(--sh-sm);transition:var(--tr)">
-            <div style="width:52px;height:52px;border-radius:50%;background:${b.color}1A;display:flex;align-items:center;justify-content:center;margin:0 auto 8px">
-              <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,${b.color},${b.color}CC);display:flex;align-items:center;justify-content:center;color:#fff">${ic(b.icon)}</div>
+
+      <!-- 下半部分：勋章墙（已获取 / 未获取混排，不做分组） -->
+      <div class="sec-title">${ic('i-medal')} 我的勋章墙
+        <span class="more">已获得 ${earned.length} / ${total}</span>
+      </div>
+      <div class="badge-grid">
+        ${all.map(b => b.earned ? `
+          <button class="badge-item earned" style="--c:${b.color}" data-badge="${b.id}">
+            <div class="bi-medal">
+              <div class="bi-disc">${ic(b.icon)}</div>
+              <span class="bi-tick">${ic('i-check')}</span>
             </div>
-            <div style="font-size:var(--fs-sm);font-weight:600;color:var(--ink)">${b.name}</div>
-            <div style="font-size:10px;color:var(--ink-4);margin-top:3px">${b.time}</div>
-          </button>`).join('')}
-        ${earned.length === 0 ? '<div class="empty" style="grid-column:1/-1"><p>暂无勋章，快去答题挑战吧！</p></div>' : ''}
-      </div>
-      <div class="sec-title">${ic('i-lock')} <span style="color:var(--ink-4)">待挑战勋章</span></div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0 16px 12px">
-        ${locked.map(b => `
-          <button class="badge-card" data-challenge="${b.id}" style="background:var(--card);border-radius:var(--r-md);padding:16px 8px;text-align:center;box-shadow:var(--sh-sm);transition:var(--tr)">
-            <div style="width:52px;height:52px;border-radius:50%;background:${b.color}14;display:flex;align-items:center;justify-content:center;margin:0 auto 8px">
-              <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,${b.color}4D,${b.color}26);display:flex;align-items:center;justify-content:center;color:${b.color}">${ic(b.icon)}</div>
+            <div class="bi-name">${b.name}</div>
+            <div class="bi-time">${b.time}</div>
+          </button>` : `
+          <button class="badge-item locked" data-challenge="${b.id}">
+            <div class="bi-medal">
+              <div class="bi-disc">${ic(b.icon)}</div>
             </div>
-            <div style="font-size:var(--fs-sm);font-weight:600;color:var(--ink)">${b.name}</div>
-            <div style="font-size:10px;color:var(--blue);margin-top:3px">答题解锁</div>
+            <div class="bi-name">${b.name}</div>
+            <div class="bi-go">去获取</div>
           </button>`).join('')}
       </div>
-      <div class="proto-note" style="margin:0 16px 20px">每枚勋章需完成对应诈骗类型的答题挑战（答对 80% 以上）方可解锁。勋章挑战自愿参与，不影响守护者正常守护。</div>
+      <div class="proto-note" style="margin:16px 16px 22px">每枚勋章需完成对应诈骗类型的答题挑战（答对 80% 以上）方可解锁。勋章挑战自愿参与，不影响守护者正常守护；点击已获得的勋章可查看获取时间。</div>
     </div>`;
   },
   mount() {
     bindBack(app);
-    app.querySelectorAll('[data-badge]').forEach(b => b.onclick = () => {
-      const badge = S.guard.badges.find(x => x.id === b.dataset.badge);
-      if (badge) toast(`${badge.name}：${badge.desc}`, badge.icon);
+    app.querySelectorAll('[data-badge]').forEach(el => el.onclick = () => {
+      const badge = S.guard.badges.find(x => x.id === el.dataset.badge);
+      if (badge) openBadgeDetail(badge);
     });
-    app.querySelectorAll('[data-challenge]').forEach(b => b.onclick = () => {
-      const badge = S.guard.badges.find(x => x.id === b.dataset.challenge);
+    app.querySelectorAll('[data-challenge]').forEach(el => el.onclick = () => {
+      const badge = S.guard.badges.find(x => x.id === el.dataset.challenge);
       if (badge) startBadgeChallenge(badge);
     });
   }
@@ -1937,12 +2231,12 @@ SCREENS.product = {
           <h3>兑换规则</h3>
           <ul>
             <li>兑换后积分即时扣除，订单取消积分退回</li>
-            <li>实物商品：3 个工作日内发货，包邮到家</li>
+            <li>实物商品：下单后 72 小时内发货，包邮到家</li>
             <li>每人每月限兑 2 件同款商品</li>
-            <li>所有商品不支持 7 天无理由退换</li>
+            <li>发货后不支持取消 / 退款，商品问题请联系客服</li>
           </ul>
           <h3>配送说明</h3>
-          <p>所有商品均为实物，将通过顺丰速运发货，全国大部分地区 3-5 个工作日送达。</p>
+          <p>所有实物商品均将通过顺丰速运发货，全国大部分地区 3-5 个工作日送达。</p>
         </div>`;
       }
     });
@@ -2013,14 +2307,17 @@ function confirmExchange(p, addr) {
     const phoneFull = (addr && addr.phoneFull) || '';
     S.orders.unshift({
       id: 'o' + Date.now(), no: 'SO' + Date.now(), name: p.name, icon: p.icon, color: p.color,
-      points: p.points, status: '待发货', time: '刚刚',
-      needLogistics: p.needLogistics !== false, phone, phoneFull, address: addr ? (addr.region + ' ' + addr.detail) : '',
+      points: p.points, status: '待发货', needLogistics: p.needLogistics !== false,
+      /* 商品来源必须落库：否则订单列表无法标明是平台自营还是赞助商供给，售后也找不到责任方 */
+      source: p.shopId ? 'shop' : 'self', shopId: p.shopId || null,
+      createdOff: 0, expectShipOff: SHIP_SLA,
+      phone, phoneFull, address: addr ? (addr.region + ' ' + addr.detail) : '',
     });
     const ok = openModal(`
       <div class="dialog">
         <div class="result-badge" style="width:80px;height:80px;background:linear-gradient(135deg,#12997A,#0F6E56)">${ic('i-check')}</div>
         <h3>兑换成功</h3>
-        <div class="d-sub">商家将在 3 个工作日内发货</div>
+        <div class="d-sub">已扣除 <b>${fmt(p.points)} 积分</b><br>${p.shopId ? '赞助商' : '平台'}将在 72 小时内发货（预计 ${fmtDT(Date.now() + SHIP_SLA)} 前）</div>
         <div class="d-btns">
           <button class="btn btn-plain" data-home>继续逛逛</button>
           <button class="btn btn-primary" data-order>查看订单</button>
@@ -2149,53 +2446,320 @@ SCREENS.shop = {
 };
 
 /* ============ 19. 兑换订单 ============ */
+/* 订单状态 → 标签配色（仅 5 态：待发货 / 取消中 / 已发货 / 已完成 / 已取消） */
+const ORDER_TAG = { '待发货': 'tag-orange', '取消中': 'tag-red', '已发货': 'tag-blue', '已完成': 'tag-green', '已取消': 'tag-gray' };
+
+/* 订单状态 → 筛选分组（仅 3 个分类，避免标签过多需横向滑动）
+   进行中：待发货 / 取消中 / 已发货——都还没落定
+   已完成：已完成 / 已取消——已有终局结论
+   具体状态仍以卡片右上角状态胶囊为准，分组只是筛选口径。 */
+const ORDER_DONE = ['已完成', '已取消'];
+const curGroup = s => ORDER_DONE.includes(s) ? '已完成' : '进行中';
+const inTab = (o, t) => t === '全部' || curGroup(o.status) === t;
+
+/* ---------- 商品来源（SP2 双轨制：平台自营 / 商户即赞助商供给） ----------
+   来源必须在订单上标明，用户才知道售后找谁、时效由谁承诺。 */
+function srcOf(o) {
+  if (o.source === 'shop') {
+    const s = (typeof SHOPS !== 'undefined' && o.shopId) ? SHOPS.find(x => x.id === o.shopId) : null;
+    const name = (s && s.name) || o.shop || '合作商户';
+    return { type: 'shop', name, color: (s && s.color) || '#185FA5', logo: (s && s.logo) || '', initial: name.charAt(0) };
+  }
+  return { type: 'self', name: '平台自营', color: '#185FA5' };
+}
+function srcTagHTML(o) {
+  const s = srcOf(o);
+  if (s.type === 'self') return `<span class="oc-src-tag is-self">${ic('i-shield')}平台自营</span>`;
+  return `<span class="oc-src-tag is-shop" style="color:${s.color};border-color:${s.color}40;background:${s.color}0F">`
+    + `<span class="osr-logo" style="background:${s.color}">${s.logo ? `<img src="${s.logo}" alt="">` : esc(s.initial)}</span>`
+    + `<b class="osr-name">${esc(s.name)}</b><i>赞助商供给</i></span>`;
+}
+
+/* ---------- 状态说明条 ----------
+   把「商家 48 小时内处理」这类模糊承诺，换算成具体的处理截止时间 + 实时剩余时长，
+   让用户一眼看清「什么时候提的、截止到什么时候、还剩多久」。 */
+/* 取消发起方文案（用户端视角）：自营订单平台自己就是履约方，是「平台已取消」；
+   只有商户供给的订单，平台替商户处置时才叫「平台已代取消」。 */
+function cancelByText(o) {
+  if (o.cancelBy === 'merchant') return '商家已取消订单';
+  if (o.cancelBy === 'platform') return o.source === 'self' ? '平台已取消订单' : '平台已代取消';
+  return '商家已同意取消';
+}
+function noteOf(o) {
+  const at = off => fmtDT(tOf(off));
+  const isVirtual = o.needLogistics === false;
+  switch (o.status) {
+    case '待发货': {
+      const shipDue = tOf(o.createdOff + SHIP_SLA);
+      const urgent = shipDue - Date.now() <= 6 * HOUR;
+      return { cls: urgent ? 'is-info is-urgent' : 'is-info', icon: 'i-clock',
+        main: `${at(o.createdOff)} 兑换成功，已扣除 ${fmt(o.points)} 积分`,
+        sub: isVirtual
+          ? '该商品无需物流，商家将在 24 小时内完成交付'
+          : `商家将在 72 小时内发货（预计 ${fmtDT(shipDue)} 前）· ${fmtLeft(shipDue)}`,
+        tip: urgent && !isVirtual ? '发货时限即将到期，逾期可联系客服催办' : '' };
+    }
+    case '取消中': {
+      const due = tOf(o.cancelApplyOff + CANCEL_SLA);
+      const urgent = due - Date.now() <= 6 * HOUR;
+      return { cls: urgent ? 'is-warn is-urgent' : 'is-warn', icon: 'i-clock',
+        main: `${at(o.cancelApplyOff)} 提交取消申请`,
+        sub: `商家需在 ${fmtDT(due)} 前处理 · ${fmtLeft(due)}`,
+        tip: urgent ? '逾期未处理将自动取消，积分原路退回' : '' };
+    }
+    case '已发货': {
+      const autoDue = tOf(o.shipOff + AUTO_RECV);
+      return { cls: 'is-info', icon: 'i-truck',
+        main: isVirtual ? `${at(o.shipOff)} 已确认交付（无需物流）` : `${at(o.shipOff)} 商家已发货`,
+        sub: isVirtual ? '该商品无需物流，请按兑换说明完成领取'
+          : `${fmtDT(autoDue)} 前未确认收货将自动确认 · ${fmtLeft(autoDue)}`,
+        tip: isVirtual ? '' : '商品已发出，不支持取消 / 退款' };
+    }
+    case '已完成':
+      return { cls: 'is-done', icon: 'i-check',
+        main: `${at(o.finishOff)} ${o.finishBy === 'auto' ? '系统自动确认收货' : '确认收货'} · 交易完成`,
+        sub: [o.shipOff != null ? `${at(o.shipOff)} 发货` : '', `${fmt(o.points)} 积分已结算`]
+          .filter(Boolean).join(' · ') };
+    case '已取消': {
+      const who = cancelByText(o);
+      // 用户申请取消的，把「申请时间」也带上；商户 / 平台主动取消的没有申请环节
+      const sub = o.cancelBy === 'user' || o.cancelApplyOff != null
+        ? `${at(o.cancelApplyOff != null ? o.cancelApplyOff : o.cancelAtOff)} 提交取消申请${o.cancelReason ? `（${esc(o.cancelReason)}）` : ''}`
+        : `${o.cancelBy === 'platform' ? '平台原因' : '商家原因'}：${esc(o.cancelReason || '—')}`;
+      return { cls: 'is-dim', icon: 'i-ban',
+        main: `${at(o.cancelAtOff)} ${who}，${fmt(o.points)} 积分已原路退回`,
+        sub };
+    }
+    default:
+      return null;
+  }
+}
+
+/* ---------- 订单进度时间轴 ----------
+   状态流转全链路：兑换 → 发货 → 收货（或取消），每个节点都带具体时间；
+   进行中的节点额外标注剩余时长，说明「现在卡在哪一步、还要等多久」。 */
+function orderSteps(o) {
+  const L = [];
+  const at = off => fmtDT(tOf(off));
+  const add = (t, d, cur) => L.push({ t, d, cur: !!cur });
+  const isVirtual = o.needLogistics === false;
+  /* 无需物流商品只说明「已确认交付（无需物流）」，不假设交付物形态（卡密 / 券码 / 线下核销皆有可能） */
+  const shipDesc = isVirtual ? '商家已确认交付（无需物流）'
+    : (o.carrier ? `商家已发货（${esc(o.carrier)} ${esc(o.trackingNo || '')}）` : '商家已发货');
+  add(at(o.createdOff), `兑换成功，消耗 ${fmt(o.points)} 积分`);
+  switch (o.status) {
+    case '待发货': {
+      const due = tOf(o.createdOff + SHIP_SLA);
+      add(fmtDT(due), `商家发货截止 · ${fmtLeft(due)}，逾期将提醒商家并触发平台介入`, true);
+      break;
+    }
+    case '取消中': {
+      add(at(o.cancelApplyOff), `提交取消申请${o.cancelReason ? `：${esc(o.cancelReason)}` : ''}`);
+      const due = tOf(o.cancelApplyOff + CANCEL_SLA);
+      add(fmtDT(due), `商家处理截止 · ${fmtLeft(due)}，逾期自动取消并原路退回积分`, true);
+      break;
+    }
+    case '已发货': {
+      add(at(o.shipOff), shipDesc);
+      add(fmtDT(tOf(o.shipOff + AUTO_RECV)), `未确认收货将自动确认 · ${fmtLeft(tOf(o.shipOff + AUTO_RECV))}`, true);
+      break;
+    }
+    case '已完成': {
+      if (o.shipOff != null) add(at(o.shipOff), shipDesc);
+      add(at(o.finishOff), `${o.finishBy === 'auto' ? '系统自动确认收货' : '您已确认收货'}，交易完成`);
+      break;
+    }
+    case '已取消': {
+      if (o.cancelBy === 'user' || o.cancelApplyOff != null) {
+        /* 有申请环节：申请 → 生效，两个节点时间不同、信息互补 */
+        add(at(o.cancelApplyOff != null ? o.cancelApplyOff : o.cancelAtOff), `提交取消申请${o.cancelReason ? `：${esc(o.cancelReason)}` : ''}`);
+        add(at(o.cancelAtOff), `${cancelByText(o)}，${fmt(o.points)} 积分已原路退回`);
+      } else {
+        /* 商户 / 平台主动取消：没有申请环节，合并为单一节点，
+           避免出现两个同刻节点重复表述同一件事 */
+        add(at(o.cancelAtOff), `${cancelByText(o)}${o.cancelReason ? `：${esc(o.cancelReason)}` : ''}，${fmt(o.points)} 积分已原路退回`);
+      }
+      break;
+    }
+  }
+  return L;
+}
+
+/* ---------- 物流追踪 底部弹层 ---------- */
+/* 收货信息块：无地址与联系方式时整块不渲染，避免出现"—"占位 */
+function addrBlock(o) {
+  if (!o.address && !o.phoneFull && !o.phone) return '';
+  return `<div class="ls-addr">${ic('i-loc')}<span>${esc(o.address || '—')}<em>${esc(o.phoneFull || o.phone || '')}</em></span></div>`;
+}
+function openLogistics(o) {
+  const noLogi = o.needLogistics === false && !(o.logistics && o.logistics.length);
+  const steps = o.logistics || [];
+  const m = openModal(`
+    <div class="sheet-panel logi-sheet">
+      <div class="sheet-handle"></div>
+      <div class="ls-head">
+        <span class="ls-hic ${noLogi ? 'soft' : ''}">${ic(noLogi ? 'i-gift' : 'i-truck')}</span>
+        <span class="ls-htext">
+          <h3>${noLogi ? '无需物流' : '物流追踪'}</h3>
+          <p>${esc(o.name)}</p>
+        </span>
+      </div>
+      ${noLogi ? `
+        <p class="ls-tip">本商品无需物流，请按兑换说明线下领取或线上核销。</p>
+        ${addrBlock(o)}`
+        : `
+        <div class="ls-way">
+          <span><b>${esc(o.carrier || '—')}</b><em>运单号 ${esc(o.trackingNo || '—')}</em></span>
+          <button class="ls-copy" data-copy="${esc(o.trackingNo || '')}">复制</button>
+        </div>
+        <div class="ls-timeline">
+          ${steps.length ? steps.map((l, i) => `
+            <div class="logi-step ${i === 0 ? 'cur' : ''}">
+              <div class="ls-line"><span class="ls-dot"></span><span class="ls-bar"></span></div>
+              <div class="ls-body">${esc(l.d)}<time>${l.off != null ? fmtDT(tOf(l.off)) : (l.t || '')}</time></div>
+            </div>`).join('') : `<div class="ls-none">暂无物流轨迹，商家发货后将同步更新</div>`}
+        </div>
+        ${addrBlock(o)}`}
+      <button class="btn btn-plain btn-block" data-close>关闭</button>
+    </div>`, true);
+  m.querySelector('[data-close]').onclick = () => closeModal(m);
+  m.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copyText(b.dataset.copy, b));
+}
+
+/* ---------- 订单进度 底部弹层 ---------- */
+function openOrderProgress(o) {
+  const steps = orderSteps(o);
+  const m = openModal(`
+    <div class="sheet-panel ops-sheet">
+      <div class="sheet-handle"></div>
+      <div class="ls-head">
+        <span class="ls-hic">${ic('i-doc')}</span>
+        <span class="ls-htext">
+          <h3>订单进度</h3>
+          <p>${esc(o.name)}</p>
+        </span>
+        <b class="tag-mini t-dot ${ORDER_TAG[o.status]}">${o.status}</b>
+      </div>
+      <div class="ops-info">
+        <div class="ops-row"><span>订单号</span><b>${esc(o.no)}</b></div>
+        <div class="ops-row"><span>商品来源</span><span class="ops-src">${srcTagHTML(o)}</span></div>
+        <div class="ops-row"><span>消耗积分</span><b class="ops-pts">${fmt(o.points)} 积分</b></div>
+      </div>
+      <div class="ls-timeline ops-timeline">
+        ${steps.map(st => `
+          <div class="logi-step ${st.cur ? 'cur' : ''}">
+            <div class="ls-line"><span class="ls-dot"></span><span class="ls-bar"></span></div>
+            <div class="ls-body">${st.d}<time>${st.t}</time></div>
+          </div>`).join('')}
+      </div>
+      <button class="btn btn-plain btn-block" data-close>关闭</button>
+    </div>`, true);
+  m.querySelector('[data-close]').onclick = () => closeModal(m);
+}
+
+/* 复制到剪贴板（无权限时降级为 execCommand） */
+function copyText(str, btn) {
+  if (!str) return;
+  const done = () => {
+    toast('已复制到剪贴板', 'i-check');
+    if (btn) { btn.textContent = '已复制'; setTimeout(() => { btn.textContent = '复制'; }, 1600); }
+  };
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = str; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { toast('复制失败，请长按手动选择'); }
+    ta.remove();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(str).then(done).catch(fallback);
+  else fallback();
+}
+
 SCREENS.orders = {
   html() {
-    const tabs = ['全部', '待发货', '取消中', '已发货', '已完成', '退款中', '已退款', '已取消'];
-    const list = S.orders.filter(o => S.orderTab === '全部' || o.status === S.orderTab);
-    const colorOf = s => ({ '待发货': 'tag-orange', '取消中': 'tag-red', '已发货': 'tag-blue', '已完成': 'tag-green', '退款中': 'tag-gold', '已退款': 'tag-gray', '已取消': 'tag-gray' }[s]);
+    const tabs = ['全部', '进行中', '已完成'];
+    if (!tabs.includes(S.orderTab)) S.orderTab = '全部';
+    const list = S.orders.filter(o => inTab(o, S.orderTab));
+    const cntOf = t => t === '全部' ? S.orders.length : S.orders.filter(o => inTab(o, t)).length;
+
+    const cardOf = o => {
+      const hasLogi = o.needLogistics !== false && o.logistics && o.logistics.length;
+      const logiTag = o.status === '已发货' ? { t: '运输中', cls: 'is-run' } : { t: '已签收', cls: 'is-done' };
+      const acts = [];
+      if (o.status === '已发货') acts.push(`<button class="btn btn-sm btn-primary" data-recv="${o.id}">确认收货</button>`);
+      if (o.status === '待发货') acts.push(`<button class="btn btn-sm btn-plain" data-cancel="${o.id}">申请取消</button>`);
+      if (o.status === '取消中') acts.push(`<button class="btn btn-sm btn-ghost" data-cancelback="${o.id}">撤销申请</button>`);
+      const n = noteOf(o);
+      return `
+      <div class="order-card">
+        <div class="oc-head">
+          <span class="oc-no">订单号 ${esc(o.no)}</span>
+          <b class="tag-mini t-dot ${ORDER_TAG[o.status]}">${o.status}</b>
+        </div>
+        <div class="oc-body">
+          <div class="oc-img" style="background:${o.color}">${ic(o.icon)}</div>
+          <div class="oc-info">
+            <div class="oc-name">${esc(o.name)}</div>
+            <div class="oc-src">${srcTagHTML(o)}</div>
+            <div class="oc-meta">下单 ${fmtDT(tOf(o.createdOff))}</div>
+            <div class="oc-pts">${fmt(o.points)}<span>积分</span></div>
+          </div>
+        </div>
+        ${hasLogi ? `
+        <button class="oc-logi" data-logi="${o.id}">
+          <span class="ol-ic">${ic('i-truck')}</span>
+          <span class="ol-body">
+            <span class="ol-top">
+              <span class="ol-desc">${esc(o.logistics[0].d)}</span>
+              <em class="${logiTag.cls}">${logiTag.t}</em>
+            </span>
+            <span class="ol-way"><b>${esc(o.carrier)}</b><span>${esc(o.trackingNo)}</span></span>
+          </span>
+          <span class="ol-go">${ic('i-right')}</span>
+        </button>` : ''}
+        ${n ? `<div class="oc-note ${n.cls}">
+          <span class="ocn-ic">${ic(n.icon)}</span>
+          <span class="ocn-txt">
+            <b>${n.main}</b>
+            <em>${n.sub}</em>
+            ${n.tip ? `<i>${n.tip}</i>` : ''}
+          </span>
+        </div>` : ''}
+        <div class="oc-foot">
+          <button class="oc-trace" data-trace="${o.id}">${ic('i-clock')}订单进度</button>
+          ${acts.join('')}
+        </div>
+      </div>`;
+    };
+
     return `
     <div class="screen">
       ${navbar('兑换订单')}
-      <div class="order-tabs">
-        ${tabs.map(t => `<button class="${S.orderTab === t ? 'on' : ''}" data-ot="${t}">${t}</button>`).join('')}
+      <div class="order-tabs-wrap">
+        <div class="order-tabs">
+          ${tabs.map(t => `<button class="${S.orderTab === t ? 'on' : ''}" data-ot="${t}">${t}${cntOf(t) ? `<em>${cntOf(t)}</em>` : ''}</button>`).join('')}
+        </div>
       </div>
-      <div style="flex:1;padding-bottom:20px">
-        ${list.length ? list.map(o => `
-          <div class="order-card">
-            <div class="oc-head">订单号 ${o.no}<b class="tag-mini ${colorOf(o.status)}">${o.status}</b></div>
-            <div class="oc-body">
-              <div class="oc-img" style="background:${o.color}">${ic(o.icon)}</div>
-              <div style="flex:1;min-width:0">
-                <div style="font-weight:600;font-size:var(--fs-md)">${o.name}</div>
-                <div style="font-size:var(--fs-xs);color:var(--ink-4);margin-top:5px">下单时间 ${o.time}</div>
-                <div style="color:var(--gold);font-weight:700;margin-top:6px;font-size:var(--fs-md)">${fmt(o.points)} 积分</div>
-                ${o.needLogistics === false ? `<div style="font-size:var(--fs-xs);color:var(--ink-4);margin-top:4px">无需物流 · 收货 ${o.address || '—'}</div>` : ''}
-                ${o.status === '取消中' ? `<div style="font-size:var(--fs-xs);color:var(--red);margin-top:4px">已申请取消，商家 48 小时内处理</div>` : ''}
-                ${o.status === '退款中' ? `<div style="font-size:var(--fs-xs);color:var(--orange-d);margin-top:4px">${o.refundNote || '已申请退款，商家 72 小时内审核'}</div>` : ''}
-              </div>
-            </div>
-            <div class="oc-foot">
-              ${o.status === '已发货' ? (o.needLogistics === false ? `<span class="tag-mini tag-gray">无需物流</span><button class="btn btn-sm btn-primary" data-recv="${o.id}">确认收货</button>` : `<button class="btn btn-sm btn-ghost" data-logi="${o.id}">${ic('i-truck')}查看物流</button><button class="btn btn-sm btn-primary" data-recv="${o.id}">确认收货</button>`) : ''}
-              ${o.status === '待发货' ? `<button class="btn btn-sm btn-plain" data-cancel="${o.id}">申请取消</button>` : ''}
-              ${o.status === '取消中' ? `<button class="btn btn-sm btn-ghost" data-cancelback="${o.id}">撤销申请</button>` : ''}
-              ${o.status === '退款中' ? `<button class="btn btn-sm btn-ghost" data-refundback="${o.id}">撤销退款</button>` : ''}
-            </div>
-          </div>`).join('')
-        : `<div class="empty">${ic('i-doc')}<p>暂无相关订单</p></div>`}
+      <div class="order-list">
+        ${list.length ? list.map(cardOf).join('') : `<div class="empty">${ic('i-doc')}<p>暂无相关订单</p></div>`}
       </div>
     </div>`;
   },
   mount() {
     bindBack(app);
     app.querySelectorAll('[data-ot]').forEach(b => b.onclick = () => { S.orderTab = b.dataset.ot; render('orders'); });
-    /* 待发货 申请取消订单（弹窗填写原因，选填） */
+    /* 订单进度时间轴 */
+    app.querySelectorAll('[data-trace]').forEach(b => b.onclick = () => {
+      const o = S.orders.find(x => x.id === b.dataset.trace);
+      if (o) openOrderProgress(o);
+    });
+    /* 待发货 申请取消订单：弹窗直接给出处理截止时间，避免"48 小时内"没有落点 */
     app.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => {
       const o = S.orders.find(x => x.id === b.dataset.cancel);
       const m = openModal(`
         <div class="dialog">
           <h3>申请取消订单</h3>
-          <div class="d-sub" style="text-align:left;margin-bottom:14px">取消申请已提交，商家将在 48 小时内处理，<br>同意后积分将原路退回您的账户。</div>
+          <div class="d-sub" style="text-align:left;margin-bottom:14px">提交后商家需在 <b>48 小时</b>内处理（截止 ${fmtDT(Date.now() + CANCEL_SLA)}），<br>同意后 ${fmt(o.points)} 积分将原路退回您的账户。</div>
           <textarea class="input cancel-reason" id="cancelReason" rows="3" placeholder="请填写取消原因（选填）"></textarea>
           <div class="d-btns">
             <button class="btn btn-plain" data-x>再想想</button>
@@ -2206,58 +2770,38 @@ SCREENS.orders = {
       m.querySelector('[data-ok]').onclick = () => {
         const reason = (m.querySelector('#cancelReason').value || '').trim();
         o.status = '取消中';
+        o.cancelApplyOff = 0;             /* 申请时间 = 当前时刻 */
+        o.cancelBy = 'user';
         o.cancelReason = reason;
         closeModal(m);
         toast('已提交取消申请，等待商家处理', 'i-check');
         render('orders');
       };
     });
-    /* 撤销取消申请 */
+    /* 撤销取消申请：只有「待发货」可申请取消，故统一回退为待发货，并清掉申请时间与原因 */
     app.querySelectorAll('[data-cancelback]').forEach(b => b.onclick = () => {
       const o = S.orders.find(x => x.id === b.dataset.cancelback);
-      confirmDlg('撤销取消申请', '确定撤销本次取消申请？订单将恢复为待发货状态。', '确认撤销', () => {
+      confirmDlg('撤销取消申请', '确定撤销本次取消申请？订单将恢复为「待发货」状态。', '确认撤销', () => {
         o.status = '待发货';
+        delete o.cancelApplyOff; delete o.cancelReason; delete o.cancelBy;
         toast('已撤销取消申请', 'i-check');
         render('orders');
       }, true);
     });
-    /* 撤销退款申请 */
-    app.querySelectorAll('[data-refundback]').forEach(b => b.onclick = () => {
-      const o = S.orders.find(x => x.id === b.dataset.refundback);
-      confirmDlg('撤销退款申请', '确定撤销本次退款申请？订单将恢复为已完成状态。', '确认撤销', () => {
-        o.status = '已完成';
-        delete o.refundNote;
-        toast('已撤销退款申请', 'i-check');
-        render('orders');
-      }, true);
-    });
+    /* 已发货订单不支持取消 / 退款，因此不提供任何售后操作入口 */
     app.querySelectorAll('[data-recv]').forEach(b => b.onclick = () => {
       const o = S.orders.find(x => x.id === b.dataset.recv);
-      confirmDlg('确认收货', '请确认已收到商品', '确认收货', () => {
+      confirmDlg('确认收货', '请确认已收到商品。确认后订单完成，积分将结算给商家。', '确认收货', () => {
         o.status = '已完成';
+        o.finishOff = 0;                  /* 完成时间 = 当前时刻 */
+        o.finishBy = 'user';
         toast('已确认收货，交易完成', 'i-check');
         render('orders');
       });
     });
     app.querySelectorAll('[data-logi]').forEach(b => b.onclick = () => {
       const o = S.orders.find(x => x.id === b.dataset.logi);
-      const noLogi = o.needLogistics === false;
-      const m = openModal(`
-        <div class="sheet-panel">
-          <div class="sheet-handle"></div>
-          <h3 style="margin-bottom:6px">${noLogi ? '无需物流' : '物流追踪'}</h3>
-          ${noLogi
-            ? `<p style="font-size:var(--fs-sm);color:var(--ink-3);line-height:1.7;padding:8px 0">本商品无需物流，请按兑换说明线下领取 / 线上核销（如卡密、到店核销等）。</p>
-               <div style="font-size:var(--fs-sm);color:var(--ink-2);line-height:1.8;margin-top:6px">收货地址：${o.address || '—'}<br>联系电话：${o.phoneFull || o.phone || '—'}</div>`
-            : `<p style="font-size:var(--fs-sm);color:var(--ink-3);margin-bottom:18px">顺丰速运 SF1386688992 · ${o.name}</p>
-          ${(o.logistics || []).map((l, i) => `
-            <div class="logi-step ${i === 0 ? 'cur' : ''}">
-              <div class="ls-line"><span class="ls-dot"></span><span class="ls-bar"></span></div>
-              <div class="ls-body">${l.d}<br><time style="font-size:11px;color:var(--ink-4)">${l.t}</time></div>
-            </div>`).join('')}`}
-          <button class="btn btn-plain btn-block" style="margin-top:8px" data-close>关闭</button>
-        </div>`, true);
-      m.querySelector('[data-close]').onclick = () => closeModal(m);
+      if (o) openLogistics(o);
     });
   }
 };
@@ -2405,7 +2949,8 @@ SCREENS.records = {
               <time>${r.time}</time>
             </div>
             <div class="ri-rows">
-              ${isGuard ? `求助者：<b>${r.seeker}</b>　通话时长：<b>${r.dur}</b>` : `守护者：<b>${r.guardName}</b>　等级：<b>${lvName}</b>　通话时长：<b>${r.dur}</b>`}
+              ${isGuard ? `求助者：<b>${r.seeker}</b>　通话时长：<b>${r.dur}</b>`
+                : `守护者：<button class="ri-guard" data-gp="rec:${r.id}">${r.guardName}${ic('i-right')}</button>　等级：<b>${lvName}</b>　通话时长：<b>${r.dur}</b>`}
             </div>
             ${isPending ? `
               <div class="ri-pending">
@@ -2437,6 +2982,8 @@ SCREENS.records = {
       if (navigator.clipboard) navigator.clipboard.writeText(id).catch(() => {});
       toast(`已复制记录单号 ${id}`, 'i-doc');
     });
+    /* 守护者名字 → 守护者公开详情 */
+    app.querySelectorAll('[data-gp]').forEach(b => b.onclick = () => go('guard-profile', { id: b.dataset.gp }));
   }
 };
 
